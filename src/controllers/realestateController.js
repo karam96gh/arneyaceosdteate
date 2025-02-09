@@ -31,7 +31,8 @@ const getAllRealEstate = (req, res) => {
             r.rentalDuration,
             r.ceilingHeight,
             r.totalFloors,
-            r.finalTypeId
+            r.finalTypeId,
+            r.buildingItemId
         FROM realestate r
         JOIN cities c ON r.cityId = c.id
         JOIN neighborhoods n ON r.neighborhoodId = n.id
@@ -111,7 +112,8 @@ const getRealEstateById = (req, res) => {
            r.rentalDuration,
             r.ceilingHeight,
             r.totalFloors,
-            r.finalTypeId
+            r.finalTypeId,
+            r.buildingItemId
     FROM realestate r
     JOIN cities c ON r.cityId = c.id
     JOIN neighborhoods n ON r.neighborhoodId = n.id
@@ -194,7 +196,7 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId
     } = req.body;
 
     // الحصول على الغلاف
@@ -205,8 +207,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -214,7 +216,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId],
         (err, results) => {
             if (err) {
             console.log(err.message);
