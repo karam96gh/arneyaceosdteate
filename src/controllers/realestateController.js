@@ -162,6 +162,87 @@ conn.query(sql,[id], (err, realEstateResults) => {
         });
 });
 };
+const getRealEstateByBuildingItemId = (req, res) => {
+    const { id } = req.params;
+    const sql = `
+    SELECT 
+        r.id, 
+        c.name AS cityName, 
+        n.name AS neighborhoodName, 
+        m.name AS mainCategoryName, 
+        s.name AS subCategoryName, 
+        f.name AS finalTypeName, 
+        r.bedrooms, 
+        r.bathrooms, 
+                r.price, 
+        r.title, 
+  r.cityId,
+            r.neighborhoodId,
+        r.furnished, 
+        r.buildingArea, 
+        r.floorNumber, 
+        r.facade, 
+        r.paymentMethod, 
+        r.mainCategoryId, 
+        r.subCategoryId, 
+        r.mainFeatures, 
+        r.additionalFeatures, 
+        r.nearbyLocations, 
+        r.coverImage,
+           r.rentalDuration,
+            r.ceilingHeight,
+            r.totalFloors,
+            r.finalTypeId,
+            r.buildingItemId
+    FROM realestate r
+    JOIN cities c ON r.cityId = c.id
+    JOIN neighborhoods n ON r.neighborhoodId = n.id
+    JOIN maintype m ON r.mainCategoryId = m.id
+    JOIN subtype s ON r.subCategoryId = s.id
+    JOIN finaltype f ON r.finalTypeId = f.id
+
+    where r.buildingItemId=?
+`;  
+const filesSql = 'SELECT name FROM files WHERE realestateId = ?';
+
+conn.query(sql,[id], (err, realEstateResults) => {
+    if (err) {
+        return res.status(500).json({ error: err.message });
+    }
+
+    const realEstateIds = realEstateResults.map(re => re.id);
+
+    if (realEstateIds.length === 0) {
+        return res.status(200).json({ message: 'Realestate not found' });
+    }
+
+    const filesPromises = realEstateIds.map(id =>
+        new Promise((resolve, reject) => {
+            conn.query(filesSql, [id], (err, files) => {
+                if (err) {
+                    return reject(err);
+                }
+                const fileNames = files.map(file => file.name); // Extract file names
+                resolve({ id, files: fileNames });
+            });
+        })
+    );
+
+    Promise.all(filesPromises)
+        .then(filesData => {
+            const resultsWithFiles = realEstateResults.map(realEstate => {
+                const files = filesData.find(f => f.id === realEstate.id)?.files || [];
+                return { ...realEstate, files };
+            });
+
+            res.status(200).json(resultsWithFiles[0]);
+        })
+        .catch(error => {
+            res.status(500).json({ error: error.message });
+        });
+});
+};
+
 
 // Add a new real estate listing
 const multer = require('multer');
@@ -289,7 +370,8 @@ module.exports = {
     getRealEstateById,
     addRealEstate,
     deleteRealEstate,
-    updateRealEstate, 
+    updateRealEstate,
+    getRealEstateByBuildingItemId, 
     upload// Export the update function
 };
 
