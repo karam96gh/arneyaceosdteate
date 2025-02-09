@@ -4,7 +4,7 @@ const realestateController = require('../controllers/realestateController');
 
 router.get('/', realestateController.getAllRealEstate);
 router.get('/:id', realestateController.getRealEstateById);
-router.get('/buildingItemId/:id', realestateController.getRealEstateByBuildingItemId);
+router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
 
 router.post('/',realestateController.upload.fields([
     { name: 'coverImage', maxCount: 1 }, // الغلاف
