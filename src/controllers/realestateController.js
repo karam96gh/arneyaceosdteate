@@ -235,7 +235,7 @@ conn.query(sql,[id], (err, realEstateResults) => {
                 return { ...realEstate, files };
             });
 
-            res.status(200).json(resultsWithFiles[0]);
+            res.status(200).json(resultsWithFiles);
         })
         .catch(error => {
             res.status(500).json({ error: error.message });
