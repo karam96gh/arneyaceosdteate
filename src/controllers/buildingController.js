@@ -3,8 +3,20 @@ const { v4: uuidv4 } = require('uuid');
 
 // جلب كل المباني
 exports.getBuildings = (req, res) => {
-     pool.promise().query('SELECT * FROM buildings')
-        .then(([rows]) => res.json(rows))
+    pool.promise().query('SELECT * FROM buildings')
+        .then(([buildings]) => {
+            if (!buildings.length) return res.json([]);
+
+            // إنشاء وعود لجلب العناصر لكل مبنى
+            const buildingsWithItemsPromises = buildings.map(building => 
+                pool.promise().query('SELECT * FROM building_items WHERE building_id = ?', [building.id])
+                    .then(([items]) => ({ ...building, items }))
+            );
+
+            // تنفيذ جميع الوعود وإرجاع النتيجة
+            return Promise.all(buildingsWithItemsPromises);
+        })
+        .then(buildingsWithItems => res.json(buildingsWithItems))
         .catch(err => res.status(500).json({ error: err.message }));
 };
 
