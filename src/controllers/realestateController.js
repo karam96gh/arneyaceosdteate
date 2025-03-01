@@ -285,7 +285,7 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location
 
     } = req.body;
 
@@ -297,8 +297,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -306,7 +306,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location],
         (err, results) => {
             if (err) {
             console.log(err.message);
