@@ -13,6 +13,7 @@ const getAllRealEstate = (req, res) => {
         f.name AS finalTypeName, 
             r.bedrooms, 
             r.cityId,
+            r.viewTime,
             r.neighborhoodId,
             r.bathrooms, 
             r.price,
@@ -98,6 +99,8 @@ const getRealEstateById = (req, res) => {
                 r.price, 
         r.title, 
   r.cityId,
+              r.viewTime,
+
             r.neighborhoodId,
         r.furnished, 
         r.buildingArea, 
@@ -178,6 +181,8 @@ const getRealEstateByBuildingItemId = (req, res) => {
         r.bathrooms, 
                 r.price, 
         r.title, 
+                    r.viewTime,
+
   r.cityId,
             r.neighborhoodId,
         r.furnished, 
@@ -280,7 +285,8 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId,buildingItemId
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime
+
     } = req.body;
 
     // الحصول على الغلاف
@@ -291,8 +297,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -300,7 +306,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime],
         (err, results) => {
             if (err) {
             console.log(err.message);
@@ -459,6 +465,7 @@ const getRealEstateSimilar = (req, res) => {
         r.bathrooms, 
                 r.price, 
         r.title, 
+        r.viewTime,
   r.cityId,
             r.neighborhoodId,
         r.furnished, 
