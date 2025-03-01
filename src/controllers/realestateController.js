@@ -32,7 +32,8 @@ const getAllRealEstate = (req, res) => {
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
-            r.buildingItemId
+            r.buildingItemId,
+            r.location
         FROM realestate r
         JOIN cities c ON r.cityId = c.id
         JOIN neighborhoods n ON r.neighborhoodId = n.id
@@ -113,7 +114,8 @@ const getRealEstateById = (req, res) => {
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
-            r.buildingItemId
+            r.buildingItemId,
+            r.location
     FROM realestate r
     JOIN cities c ON r.cityId = c.id
     JOIN neighborhoods n ON r.neighborhoodId = n.id
@@ -193,7 +195,8 @@ const getRealEstateByBuildingItemId = (req, res) => {
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
-            r.buildingItemId
+            r.buildingItemId,
+            r.location
     FROM realestate r
     JOIN cities c ON r.cityId = c.id
     JOIN neighborhoods n ON r.neighborhoodId = n.id
@@ -340,30 +343,164 @@ const deleteRealEstate = (req, res) => {
     });
 };
 // Update a real estate listing
-const updateRealEstate = (req, res) => {
+
+const updateRealEstate = async (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
-    // Build the SQL query dynamically to only include fields provided in the request body
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-    console.log(updates);
-    if (fields.length === 0) {
-        return res.status(400).json({ message: 'No fields provided to update' });
+    const fieldsToUpdate = req.body;
+    const coverImage = req.files?.coverImage?.[0]?.filename || null;
+    const newFiles = req.files?.files?.map(file => file.filename) || [];
+
+    try {
+        const connPromise = conn.promise(); // جعل الاتصال متوافق مع async/await
+
+        // 1️⃣ تحديث بيانات العقار ديناميكياً فقط عند وجود تغييرات
+        if (Object.keys(fieldsToUpdate).length > 0) {
+            try {
+                let updateQuery = 'UPDATE realestate SET ';
+                const updateFields = [];
+                const values = [];
+
+                for (let key in fieldsToUpdate) {
+                    updateFields.push(`${key}=?`);
+                    values.push(fieldsToUpdate[key]);
+                }
+                updateQuery += updateFields.join(', ') + ' WHERE id=?';
+                values.push(id);
+
+                await connPromise.query(updateQuery, values);
+            } catch (error) {
+                console.error("❌ خطأ في تحديث بيانات العقار:", error);
+                return res.status(500).json({ error: "حدث خطأ أثناء تحديث بيانات العقار." });
+            }
+        }
+
+        // 2️⃣ تحديث صورة الغلاف إذا تم رفع صورة جديدة
+        if (coverImage) {
+            try {
+                const [oldCoverRows] = await connPromise.query('SELECT coverImage FROM realestate WHERE id=?', [id]);
+
+                if (oldCoverRows.length > 0 && oldCoverRows[0].coverImage) {
+                    const oldCoverPath = path.join(__dirname, "../images", oldCoverRows[0].coverImage);
+                    if (fs.existsSync(oldCoverPath)) {
+                        fs.unlinkSync(oldCoverPath); // حذف الصورة القديمة
+                    }
+                }
+
+                await connPromise.query('UPDATE realestate SET coverImage=? WHERE id=?', [coverImage, id]);
+            } catch (error) {
+                console.error("❌ خطأ في تحديث صورة الغلاف:", error);
+                return res.status(500).json({ error: "حدث خطأ أثناء تحديث صورة الغلاف." });
+            }
+        }
+
+        // 3️⃣ تحديث الملفات إذا تم رفع ملفات جديدة
+        if (newFiles.length > 0) {
+            try {
+                const [oldFiles] = await connPromise.query('SELECT name FROM files WHERE realestateId=?', [id]);
+
+                // حذف الملفات القديمة بعد التأكد من وجودها
+                for (let file of oldFiles) {
+                    const filePath = path.join(__dirname, "../images", file.name);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                }
+
+                // حذف السجلات القديمة من قاعدة البيانات
+                await connPromise.query('DELETE FROM files WHERE realestateId=?', [id]);
+
+                // إدخال الملفات الجديدة
+                for (let fileName of newFiles) {
+                    await connPromise.query('INSERT INTO files (name, realestateId) VALUES (?, ?)', [fileName, id]);
+                }
+            } catch (error) {
+                console.error("❌ خطأ في تحديث الملفات:", error);
+                return res.status(500).json({ error: "حدث خطأ أثناء تحديث الملفات." });
+            }
+        }
+
+        res.status(200).json({ message: '✅ تم تحديث العقار بنجاح!' });
+
+    } catch (error) {
+        console.error("❌ خطأ غير متوقع:", error);
+        res.status(500).json({ error: "حدث خطأ غير متوقع أثناء تحديث العقار." });
     }
+};
 
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
-    const sql = `UPDATE realestate SET ${setClause} WHERE id = ?`;
 
-    conn.query(sql, [...values, id], (err, results) => {
+
+const getRealEstateSimilar = (req, res) => {
+    const { id } = req.params;
+
+    // First, we fetch the real estate item by ID to get its category details.
+    const sql = 'SELECT mainCategoryId, subCategoryId, finalTypeId FROM realestate WHERE id = ?';
+    conn.query(sql, [id], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        if (results.affectedRows === 0) {
+
+        if (results.length === 0) {
             return res.status(404).json({ message: 'Real estate not found' });
         }
-        res.status(200).json({ message: 'Real estate updated successfully' });
+
+        // Extract the category IDs of the real estate item
+        const { mainCategoryId, subCategoryId, finalTypeId } = results[0];
+
+        // Now, fetch similar real estate items based on matching category IDs
+        const similarQuery = `
+        SELECT 
+        r.id, 
+        c.name AS cityName, 
+        n.name AS neighborhoodName, 
+        m.name AS mainCategoryName, 
+        s.name AS subCategoryName, 
+        f.name AS finalTypeName, 
+        r.bedrooms, 
+        r.bathrooms, 
+                r.price, 
+        r.title, 
+  r.cityId,
+            r.neighborhoodId,
+        r.furnished, 
+        r.buildingArea, 
+        r.floorNumber, 
+        r.facade, 
+        r.paymentMethod, 
+        r.mainCategoryId, 
+        r.subCategoryId, 
+        r.mainFeatures, 
+        r.additionalFeatures, 
+        r.nearbyLocations, 
+        r.coverImage,
+           r.rentalDuration,
+            r.ceilingHeight,
+            r.totalFloors,
+            r.finalTypeId,
+            r.buildingItemId,
+            r.location
+    FROM realestate r
+    JOIN cities c ON r.cityId = c.id
+    JOIN neighborhoods n ON r.neighborhoodId = n.id
+    JOIN maintype m ON r.mainCategoryId = m.id
+    JOIN subtype s ON r.subCategoryId = s.id
+    JOIN finaltype f ON r.finalTypeId = f.id
+
+        
+            WHERE r.mainCategoryId = ? 
+              AND r.subCategoryId = ? 
+              AND r.finalTypeId = ? 
+              AND r.id != ?`;  // Exclude the original real estate item
+
+        conn.query(similarQuery, [mainCategoryId, subCategoryId, finalTypeId, id], (err, similarRealEstate) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            res.status(200).json(similarRealEstate);
+        });
     });
 };
+
 
 module.exports = {
     getAllRealEstate,
@@ -372,6 +509,7 @@ module.exports = {
     deleteRealEstate,
     updateRealEstate,
     getRealEstateByBuildingItemId, 
+    getRealEstateSimilar,
     upload// Export the update function
 };
 

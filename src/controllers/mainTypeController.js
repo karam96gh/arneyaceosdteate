@@ -100,9 +100,9 @@ const addMaintype = (req, res) => {
 const updateMaintype = (req, res) => {
     const { id } = req.params;
     const updates = req.body;
-    
+
     if (req.file) {
-        updates.icon = req.file.filename; // دمج icon مع التحديثات
+        updates.icon = req.file.filename; // تعيين اسم الصورة الجديدة
     }
 
     const fields = Object.keys(updates);
@@ -112,17 +112,41 @@ const updateMaintype = (req, res) => {
         return res.status(400).json({ message: 'No fields provided to update' });
     }
 
-    const sql = `UPDATE maintype SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`;
-    conn.query(sql, [...values, id], (err, results) => {
+    // 🔍 الحصول على اسم الأيقونة القديمة قبل التحديث
+    const getOldIconQuery = 'SELECT icon FROM maintype WHERE id = ?';
+    conn.query(getOldIconQuery, [id], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        if (results.affectedRows === 0) {
+        if (results.length === 0) {
             return res.status(404).json({ message: 'Maintype not found' });
         }
-        res.status(200).json({ message: 'Maintype updated successfully' });
+
+        const oldIcon = results[0].icon; // اسم الأيقونة القديمة
+
+        // 🔄 تحديث بيانات `maintype`
+        const updateQuery = `UPDATE maintype SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`;
+        conn.query(updateQuery, [...values, id], (err, updateResults) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            if (updateResults.affectedRows === 0) {
+                return res.status(404).json({ message: 'Maintype not found' });
+            }
+
+            // 🗑️ **حذف الصورة القديمة إن وجدت**
+            if (req.file && oldIcon) {
+                const oldIconPath = path.join(__dirname, 'src/images/', oldIcon);
+                if (fs.existsSync(oldIconPath)) {
+                    fs.unlinkSync(oldIconPath); // حذف الصورة القديمة
+                }
+            }
+
+            res.status(200).json({ message: 'Maintype updated successfully' });
+        });
     });
 };
+
 // Delete a maintype
 const deleteMaintype = (req, res) => {
     const { id } = req.params;
