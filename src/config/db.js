@@ -5,7 +5,9 @@ const conn = mysql.createConnection({
   host: '127.0.0.1',
   user: 'root',
   password: '',
-  database: 'realestate'
+  database: 'realestate',
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
 
 conn.connect((err) => {
