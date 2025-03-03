@@ -6,6 +6,7 @@ const getAllRealEstate = (req, res) => {
     const realEstateSql = `
         SELECT 
             r.id, 
+            r.description,
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName, 
@@ -89,6 +90,7 @@ const getRealEstateById = (req, res) => {
     const sql = `
     SELECT 
         r.id, 
+        r.description,
         c.name AS cityName, 
         n.name AS neighborhoodName, 
         m.name AS mainCategoryName, 
@@ -172,6 +174,7 @@ const getRealEstateByBuildingItemId = (req, res) => {
     const sql = `
     SELECT 
         r.id, 
+        r.description,
         c.name AS cityName, 
         n.name AS neighborhoodName, 
         m.name AS mainCategoryName, 
@@ -285,7 +288,7 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location,description
 
     } = req.body;
 
@@ -297,8 +300,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -306,7 +309,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description],
         (err, results) => {
             if (err) {
             console.log(err.message);
@@ -456,6 +459,7 @@ const getRealEstateSimilar = (req, res) => {
         const similarQuery = `
         SELECT 
         r.id, 
+        r.description,
         c.name AS cityName, 
         n.name AS neighborhoodName, 
         m.name AS mainCategoryName, 
