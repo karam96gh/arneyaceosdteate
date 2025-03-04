@@ -4,7 +4,9 @@ const { v4: uuidv4 } = require('uuid');
 // جلب العناصر داخل مبنى معين
 exports.getBuildingItems = (req, res) => {
     const { buildingId } = req.params;
-     pool.promise().query('SELECT * FROM building_items WHERE building_id = ?', [buildingId])
+
+    pool.promise()
+        .query('SELECT *, (SELECT COUNT(*) FROM realestate WHERE realestate.buildingitemid = building_items.id) AS realestateCount FROM building_items WHERE building_id = ?', [buildingId])
         .then(([rows]) => res.json(rows))
         .catch(err => res.status(500).json({ error: err.message }));
 };
