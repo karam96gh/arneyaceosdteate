@@ -268,7 +268,7 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         try {
-              const fileExtension = path.extname(file.originalname); 
+            const fileExtension = path.extname(file.originalname); 
             
             // إنشاء اسم فريد مع الاحتفاظ بالامتداد
             const uniqueName = `${Date.now()}${fileExtension}`;
@@ -280,7 +280,39 @@ const storage = multer.diskStorage({
     },
 });
 
-const upload = multer({ storage });
+// إضافة فلتر للتحقق من نوع الملف
+const fileFilter = (req, file, cb) => {
+    // التحقق إذا كان الملف صورة للحقل coverImage فقط
+    if (file.fieldname === 'coverImage') {
+        // قائمة بأنواع الصور المسموح بها
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
+        
+        if (allowedMimeTypes.includes(file.mimetype)) {
+            // قبول الملف لأنه صورة
+            cb(null, true);
+        } else {
+            // رفض الملف لأنه ليس صورة
+            cb(new Error('Only image files are allowed for coverImage!'), false);
+        }
+    } else {
+        // قبول الملفات الأخرى بدون تحقق (مثل files)
+        cb(null, true);
+    }
+};
+
+// إنشاء وسيط multer مع إعدادات التخزين والفلتر
+const upload = multer({ 
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB كحد أقصى لحجم الملف (اختياري)
+    }
+});
+
+// تصدير وسيط الرفع لاستخدامه في الراوتر
+const uploadImage = upload;
+
+module.exports = { uploadImage };
 
 // الوظيفة لإضافة العقار
 const addRealEstate = (req, res) => {
