@@ -14,6 +14,8 @@ const getAllRealEstate = (req, res) => {
         f.name AS finalTypeName, 
             r.bedrooms, 
             r.cityId,
+                    r.buildingAge,
+
             r.viewTime,
             r.neighborhoodId,
             r.bathrooms, 
@@ -98,6 +100,8 @@ const getRealEstateById = (req, res) => {
         f.name AS finalTypeName, 
         r.bedrooms, 
         r.bathrooms, 
+                r.buildingAge,
+
                 r.price, 
         r.title, 
   r.cityId,
@@ -182,6 +186,8 @@ const getRealEstateByBuildingItemId = (req, res) => {
         f.name AS finalTypeName, 
         r.bedrooms, 
         r.bathrooms, 
+                r.buildingAge,
+
                 r.price, 
         r.title, 
                     r.viewTime,
@@ -320,7 +326,8 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location,description
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location,description,        buildingAge
+
 
     } = req.body;
 
@@ -332,8 +339,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -341,7 +348,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge],
         (err, results) => {
             if (err) {
             console.log(err.message);
@@ -499,13 +506,15 @@ const getRealEstateSimilar = (req, res) => {
         f.name AS finalTypeName, 
         r.bedrooms, 
         r.bathrooms, 
+        r.buildingAge,
                 r.price, 
         r.title, 
         r.viewTime,
-  r.cityId,
+         r.cityId,
             r.neighborhoodId,
         r.furnished, 
         r.buildingArea, 
+        r.buildingAge,
         r.floorNumber, 
         r.facade, 
         r.paymentMethod, 
