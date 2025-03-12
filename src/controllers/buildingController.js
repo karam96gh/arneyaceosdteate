@@ -36,9 +36,9 @@ exports.getBuildingById = (req, res) => {
 
 // إنشاء مبنى جديد
 exports.createBuilding = (req, res) => {
-    const { title, status ,location} = req.body;
+    const { title, status ,location,buildingAge} = req.body;
     const id = uuidv4();
-     pool.promise().query('INSERT INTO buildings (id, title, status,location) VALUES (?, ?, ?,?)', [id, title, status,location])
+     pool.promise().query('INSERT INTO buildings (id, title, status,location,buildingAge) VALUES (?, ?, ?,?,?)', [id, title, status,location,buildingAge])
         .then(() => res.json({ id, title, status,location }))
         .catch(err => res.status(500).json({ error: err.message }));
 };

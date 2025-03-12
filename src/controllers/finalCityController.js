@@ -13,9 +13,9 @@ const getAllFinalCity = (req, res) => {
 
 // Get finalcity by city ID
 const getFinalCityByneighborhoodId = (req, res) => {
-    const { cityId } = req.params;
+    const { neighborhoodId } = req.params;
     const sql = 'SELECT * FROM FinalCity WHERE neighborhoodId = ?';
-    conn.query(sql, [cityId], (err, results) => {
+    conn.query(sql, [neighborhoodId], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -27,7 +27,7 @@ const getFinalCityByneighborhoodId = (req, res) => {
 const addFinalCity = (req, res) => {
     const { name, neighborhoodId } = req.body;
     const sql = 'INSERT INTO FinalCity (name, neighborhoodId) VALUES (?, ?)';
-    conn.query(sql, [name, cityId], (err, results) => {
+    conn.query(sql, [name, neighborhoodId], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
