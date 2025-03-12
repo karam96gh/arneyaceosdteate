@@ -2,7 +2,7 @@ const conn = require('../config/db');
 
 // Get all finalcity
 const getAllFinalCity = (req, res) => {
-    const sql = 'SELECT * FROM FinalCity';
+    const sql = 'SELECT * FROM finalCity';
     conn.query(sql, (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -14,7 +14,7 @@ const getAllFinalCity = (req, res) => {
 // Get finalcity by city ID
 const getFinalCityByneighborhoodId = (req, res) => {
     const { neighborhoodId } = req.params;
-    const sql = 'SELECT * FROM FinalCity WHERE neighborhoodId = ?';
+    const sql = 'SELECT * FROM finalCity WHERE neighborhoodId = ?';
     conn.query(sql, [neighborhoodId], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -26,19 +26,19 @@ const getFinalCityByneighborhoodId = (req, res) => {
 // Add a new neighborhood
 const addFinalCity = (req, res) => {
     const { name, neighborhoodId } = req.body;
-    const sql = 'INSERT INTO FinalCity (name, neighborhoodId) VALUES (?, ?)';
+    const sql = 'INSERT INTO finalCity (name, neighborhoodId) VALUES (?, ?)';
     conn.query(sql, [name, neighborhoodId], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        res.status(201).json({ id: results.insertId, name, cityId });
+        res.status(201).json({ id: results.insertId, name, neighborhoodId });
     });
 };
 
 // Delete a neighborhood
 const deleteFinalCity = (req, res) => {
     const { id } = req.params;
-    const sql = 'DELETE FROM FinalCity WHERE id = ?';
+    const sql = 'DELETE FROM finalCity WHERE id = ?';
     conn.query(sql, [id], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -64,7 +64,7 @@ const updateFinalCity = (req, res) => {
     const values = Object.values(updates);
 
     const setClause = fields.map(field => `${field} = ?`).join(', ');
-    const sql = `UPDATE FinalCity SET ${setClause} WHERE id = ?`;
+    const sql = `UPDATE finalCity SET ${setClause} WHERE id = ?`;
 
     conn.query(sql, [...values, id], (err, results) => {
         if (err) {
