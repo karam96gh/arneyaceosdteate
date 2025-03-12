@@ -7,9 +7,11 @@ const getAllRealEstate = (req, res) => {
         SELECT 
             r.id, 
             r.description,
+            r.finalCityId,
             c.name AS cityName, 
             n.name AS neighborhoodName, 
-                m.name AS mainCategoryName, 
+                m.name AS mainCategoryName,
+                fc.name as finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
             r.bedrooms, 
@@ -44,6 +46,8 @@ const getAllRealEstate = (req, res) => {
             JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
+        JOIN finalCity fc ON r.finalCityId = fc.id
+
     `;
 
     const filesSql = 'SELECT name FROM files WHERE realestateId = ?';
@@ -90,48 +94,49 @@ const getAllRealEstate = (req, res) => {
 const getRealEstateById = (req, res) => {
     const { id } = req.params;
     const sql = `
-    SELECT 
-        r.id, 
-        r.description,
-        c.name AS cityName, 
-        n.name AS neighborhoodName, 
-        m.name AS mainCategoryName, 
+   SELECT 
+            r.id, 
+            r.description,
+            r.finalCityId,
+            c.name AS cityName, 
+            n.name AS neighborhoodName, 
+                m.name AS mainCategoryName,
+                fc.name as finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
-        r.bedrooms, 
-        r.bathrooms, 
-                r.buildingAge,
+            r.bedrooms, 
+            r.cityId,
+                    r.buildingAge,
 
-                r.price, 
-        r.title, 
-  r.cityId,
-              r.viewTime,
-
+            r.viewTime,
             r.neighborhoodId,
-        r.furnished, 
-        r.buildingArea, 
-        r.floorNumber, 
-        r.facade, 
-        r.paymentMethod, 
-        r.mainCategoryId, 
-        r.subCategoryId, 
-        r.mainFeatures, 
-        r.additionalFeatures, 
-        r.nearbyLocations, 
-        r.coverImage,
-           r.rentalDuration,
+            r.bathrooms, 
+            r.price,
+            r.title,
+            r.furnished, 
+            r.buildingArea, 
+            r.floorNumber, 
+            r.facade, 
+            r.paymentMethod, 
+            r.mainCategoryId, 
+            r.subCategoryId, 
+            r.mainFeatures, 
+            r.additionalFeatures, 
+            r.nearbyLocations, 
+            r.coverImage,
+            r.rentalDuration,
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
             r.buildingItemId,
             r.location
-    FROM realestate r
-    JOIN cities c ON r.cityId = c.id
-    JOIN neighborhoods n ON r.neighborhoodId = n.id
-    JOIN maintype m ON r.mainCategoryId = m.id
+        FROM realestate r
+        JOIN cities c ON r.cityId = c.id
+        JOIN neighborhoods n ON r.neighborhoodId = n.id
+            JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
-
+        JOIN finalCity fc ON r.finalCityId = fc.id
     where r.id=?
 `;  
 const filesSql = 'SELECT name FROM files WHERE realestateId = ?';
@@ -176,47 +181,49 @@ conn.query(sql,[id], (err, realEstateResults) => {
 const getRealEstateByBuildingItemId = (req, res) => {
     const { id } = req.params;
     const sql = `
-    SELECT 
-        r.id, 
-        r.description,
-        c.name AS cityName, 
-        n.name AS neighborhoodName, 
-        m.name AS mainCategoryName, 
+     SELECT 
+            r.id, 
+            r.description,
+            r.finalCityId,
+            c.name AS cityName, 
+            n.name AS neighborhoodName, 
+                m.name AS mainCategoryName,
+                fc.name as finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
-        r.bedrooms, 
-        r.bathrooms, 
-                r.buildingAge,
+            r.bedrooms, 
+            r.cityId,
+                    r.buildingAge,
 
-                r.price, 
-        r.title, 
-                    r.viewTime,
-
-  r.cityId,
+            r.viewTime,
             r.neighborhoodId,
-        r.furnished, 
-        r.buildingArea, 
-        r.floorNumber, 
-        r.facade, 
-        r.paymentMethod, 
-        r.mainCategoryId, 
-        r.subCategoryId, 
-        r.mainFeatures, 
-        r.additionalFeatures, 
-        r.nearbyLocations, 
-        r.coverImage,
-           r.rentalDuration,
+            r.bathrooms, 
+            r.price,
+            r.title,
+            r.furnished, 
+            r.buildingArea, 
+            r.floorNumber, 
+            r.facade, 
+            r.paymentMethod, 
+            r.mainCategoryId, 
+            r.subCategoryId, 
+            r.mainFeatures, 
+            r.additionalFeatures, 
+            r.nearbyLocations, 
+            r.coverImage,
+            r.rentalDuration,
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
             r.buildingItemId,
             r.location
-    FROM realestate r
-    JOIN cities c ON r.cityId = c.id
-    JOIN neighborhoods n ON r.neighborhoodId = n.id
-    JOIN maintype m ON r.mainCategoryId = m.id
+        FROM realestate r
+        JOIN cities c ON r.cityId = c.id
+        JOIN neighborhoods n ON r.neighborhoodId = n.id
+            JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
+        JOIN finalCity fc ON r.finalCityId = fc.id
 
     where r.buildingItemId=?
 `;  
@@ -326,7 +333,7 @@ const addRealEstate = (req, res) => {
         price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
         buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
         subCategoryId, mainFeatures, additionalFeatures, nearbyLocations,rentalDuration,
-        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location,description,        buildingAge
+        ceilingHeight,totalFloors,finalTypeId,buildingItemId, viewTime,location,description,buildingAge,finalCityId
 
 
     } = req.body;
@@ -339,8 +346,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -348,7 +355,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId],
         (err, results) => {
             if (err) {
             console.log(err.message);
@@ -496,47 +503,50 @@ const getRealEstateSimilar = (req, res) => {
 
         // Now, fetch similar real estate items based on matching category IDs
         const similarQuery = `
-        SELECT 
-        r.id, 
-        r.description,
-        c.name AS cityName, 
-        n.name AS neighborhoodName, 
-        m.name AS mainCategoryName, 
+        
+     SELECT 
+            r.id, 
+            r.description,
+            r.finalCityId,
+            c.name AS cityName, 
+            n.name AS neighborhoodName, 
+                m.name AS mainCategoryName,
+                fc.name as finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
-        r.bedrooms, 
-        r.bathrooms, 
-        r.buildingAge,
-                r.price, 
-        r.title, 
-        r.viewTime,
-         r.cityId,
+            r.bedrooms, 
+            r.cityId,
+                    r.buildingAge,
+
+            r.viewTime,
             r.neighborhoodId,
-        r.furnished, 
-        r.buildingArea, 
-        r.buildingAge,
-        r.floorNumber, 
-        r.facade, 
-        r.paymentMethod, 
-        r.mainCategoryId, 
-        r.subCategoryId, 
-        r.mainFeatures, 
-        r.additionalFeatures, 
-        r.nearbyLocations, 
-        r.coverImage,
-           r.rentalDuration,
+            r.bathrooms, 
+            r.price,
+            r.title,
+            r.furnished, 
+            r.buildingArea, 
+            r.floorNumber, 
+            r.facade, 
+            r.paymentMethod, 
+            r.mainCategoryId, 
+            r.subCategoryId, 
+            r.mainFeatures, 
+            r.additionalFeatures, 
+            r.nearbyLocations, 
+            r.coverImage,
+            r.rentalDuration,
             r.ceilingHeight,
             r.totalFloors,
             r.finalTypeId,
             r.buildingItemId,
             r.location
-    FROM realestate r
-    JOIN cities c ON r.cityId = c.id
-    JOIN neighborhoods n ON r.neighborhoodId = n.id
-    JOIN maintype m ON r.mainCategoryId = m.id
+        FROM realestate r
+        JOIN cities c ON r.cityId = c.id
+        JOIN neighborhoods n ON r.neighborhoodId = n.id
+            JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
-
+        JOIN finalCity fc ON r.finalCityId = fc.id
         
             WHERE r.mainCategoryId = ? 
               AND r.subCategoryId = ? 
