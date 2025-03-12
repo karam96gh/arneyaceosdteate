@@ -451,6 +451,8 @@ const updateRealEstate = async (req, res) => {
           
                 // إدخال الملفات الجديدة
                 for (let fileName of newFiles) {
+                    await connPromise.query('delete from files where name=?', [fileName]);
+
                     await connPromise.query('INSERT INTO files (name, realestateId) VALUES (?, ?)', [fileName, id]);
                 }
             } catch (error) {
