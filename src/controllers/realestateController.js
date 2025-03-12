@@ -428,8 +428,10 @@ const updateRealEstate = async (req, res) => {
                 const values = [];
 
                 for (let key in fieldsToUpdate) {
+                    if(key!='files'){
                     updateFields.push(`${key}=?`);
                     values.push(fieldsToUpdate[key]);
+                    }
                 }
                 updateQuery += updateFields.join(', ') + ' WHERE id=?';
                 values.push(id);
