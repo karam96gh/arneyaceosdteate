@@ -7,7 +7,7 @@ const router = Router();
 // Configure multer for image uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, '../controller/src/images/'); // Set the destination directory for uploaded images
+    cb(null, '../controllers/src/images/'); // Set the destination directory for uploaded images
   },
   filename: (req, file, cb) => {
     if(file.originalname.endsWith('mp4'))
