@@ -29,6 +29,8 @@ app.use('/api/finalCity', finalCityRoutes);
 app.use('/api/realestate', realestateRoutes);
 app.use('/api/subtypes', subtypeRoutes);
 app.use('/images', require('./Routes/uploadImage'));
+app.use('/api', require('./Routes/upload_file'));
+
 app.use("/api/finaltypes", finalTypeRoutes);
 
 //app.use('/ads', require('./Routes/adsRoute'));
