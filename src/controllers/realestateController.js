@@ -46,7 +46,7 @@ const getAllRealEstate = (req, res) => {
             JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
-        JOIN finalCity fc ON r.finalCityId = fc.id
+        JOIN finalCity fc ON r.finalCityId <> fc.id
 
     `;
 
