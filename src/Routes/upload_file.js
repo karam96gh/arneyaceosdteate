@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const { validateToken } = require('../Middlewares/ValidateToken');
 const multer = require('multer'); // Import multer here
 const { uploadImage } = require('../controllers/upload_file');
 
@@ -28,6 +27,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Define the image upload route
-router.post('/upload/uploadFile', validateToken, upload.single('file'), uploadImage);
+router.post('/upload/uploadFile', upload.single('file'), uploadImage);
 
 module.exports = router;
