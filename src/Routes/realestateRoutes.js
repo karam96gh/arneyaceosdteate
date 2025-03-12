@@ -13,6 +13,8 @@ router.post('/',realestateController.upload.fields([
 ]), realestateController.addRealEstate);
 
 router.delete('/:id', realestateController.deleteRealEstate);
+router.delete('/:name', realestateController.deleteFile);
+
 router.put('/:id',realestateController.upload.fields([
     { name: 'coverImage', maxCount: 1 }, // الغلاف
     { name: 'files', maxCount: 10 } // ملفات إضافية (اختياري)

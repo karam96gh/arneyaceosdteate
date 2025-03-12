@@ -397,13 +397,25 @@ const deleteRealEstate = (req, res) => {
         res.status(200).json({ message: 'Real estate deleted successfully' });
     });
 };
+const deleteFile = (req, res) => {
+    const { name} = req.params;
+    const sql = 'DELETE FROM files WHERE name = ?';
+    conn.query(sql, [name], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ message: 'Real estate not found' });
+        }
+        res.status(200).json({ message: 'Real estate deleted successfully' });
+    });
+};
 // Update a real estate listing
 
 const updateRealEstate = async (req, res) => {
     const { id } = req.params;
     const fieldsToUpdate = req.body;
-    const coverImage = req.files?.coverImage?.[0]?.filename || null;
-    const newFiles = req.files?.files?.map(file => file.filename) || [];
+    const newFiles = Array.isArray(req.body.files) ? req.body.files : [];
 
     try {
         const connPromise = conn.promise(); // جعل الاتصال متوافق مع async/await
@@ -429,41 +441,12 @@ const updateRealEstate = async (req, res) => {
             }
         }
 
-        // 2️⃣ تحديث صورة الغلاف إذا تم رفع صورة جديدة
-        if (coverImage) {
-            try {
-                const [oldCoverRows] = await connPromise.query('SELECT coverImage FROM realestate WHERE id=?', [id]);
-
-                if (oldCoverRows.length > 0 && oldCoverRows[0].coverImage) {
-                    const oldCoverPath = path.join(__dirname, "../images", oldCoverRows[0].coverImage);
-                    if (fs.existsSync(oldCoverPath)) {
-                        fs.unlinkSync(oldCoverPath); // حذف الصورة القديمة
-                    }
-                }
-
-                await connPromise.query('UPDATE realestate SET coverImage=? WHERE id=?', [coverImage, id]);
-            } catch (error) {
-                console.error("❌ خطأ في تحديث صورة الغلاف:", error);
-                return res.status(500).json({ error: "حدث خطأ أثناء تحديث صورة الغلاف." });
-            }
-        }
+       
 
         // 3️⃣ تحديث الملفات إذا تم رفع ملفات جديدة
         if (newFiles.length > 0) {
             try {
-                const [oldFiles] = await connPromise.query('SELECT name FROM files WHERE realestateId=?', [id]);
-
-                // حذف الملفات القديمة بعد التأكد من وجودها
-                for (let file of oldFiles) {
-                    const filePath = path.join(__dirname, "../images", file.name);
-                    if (fs.existsSync(filePath)) {
-                        fs.unlinkSync(filePath);
-                    }
-                }
-
-                // حذف السجلات القديمة من قاعدة البيانات
-                await connPromise.query('DELETE FROM files WHERE realestateId=?', [id]);
-
+          
                 // إدخال الملفات الجديدة
                 for (let fileName of newFiles) {
                     await connPromise.query('INSERT INTO files (name, realestateId) VALUES (?, ?)', [fileName, id]);
@@ -572,6 +555,7 @@ module.exports = {
     updateRealEstate,
     getRealEstateByBuildingItemId, 
     getRealEstateSimilar,
+    deleteFile,
     upload// Export the update function
 };
 
