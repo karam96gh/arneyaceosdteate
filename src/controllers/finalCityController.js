@@ -1,6 +1,6 @@
 const conn = require('../config/db');
 
-// Get all neighborhoods
+// Get all finalcity
 const getAllFinalCity = (req, res) => {
     const sql = 'SELECT * FROM FinalCity';
     conn.query(sql, (err, results) => {
@@ -11,7 +11,7 @@ const getAllFinalCity = (req, res) => {
     });
 };
 
-// Get neighborhoods by city ID
+// Get finalcity by city ID
 const getFinalCityByneighborhoodId = (req, res) => {
     const { cityId } = req.params;
     const sql = 'SELECT * FROM FinalCity WHERE neighborhoodId = ?';
