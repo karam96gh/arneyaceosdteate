@@ -8,6 +8,8 @@ const citiesRoutes = require('./Routes/citiesRoutes');
 const filesRoutes = require('./Routes/filesRoutes');
 const maintypeRoutes = require('./Routes/maintypeRoutes');
 const neighborhoodsRoutes = require('./Routes/neighborhoodsRoutes');
+const finalCityRoutes = require('./Routes/finalCityRoutes');
+
 const realestateRoutes = require('./Routes/realestateRoutes');
 const subtypeRoutes = require('./Routes/subtypeRoutes');
 const finalTypeRoutes = require("./Routes/finalTypeRoutes");
@@ -22,6 +24,8 @@ app.use('/api', buildingRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/maintypes', maintypeRoutes);
 app.use('/api/neighborhoods', neighborhoodsRoutes);
+app.use('/api/finalCity', finalCityRoutes);
+
 app.use('/api/realestate', realestateRoutes);
 app.use('/api/subtypes', subtypeRoutes);
 app.use('/images', require('./Routes/uploadImage'));
