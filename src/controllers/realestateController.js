@@ -416,7 +416,7 @@ const updateRealEstate = async (req, res) => {
     const { id } = req.params;
     const fieldsToUpdate = req.body;
     const newFiles = Array.isArray(req.body.files) ? req.body.files : [];
-
+    console.log(newFiles);
     try {
         const connPromise = conn.promise(); // جعل الاتصال متوافق مع async/await
 
