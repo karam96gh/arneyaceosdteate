@@ -17,7 +17,7 @@ conn.connect((err) => {
   }
   console.log('Connected to MySQL database');
   setInterval(() => {
-    connection.query('SELECT 1', (err) => {
+    conn.query('SELECT 1', (err) => {
       if (err) console.error('Keep-Alive query failed:', err);
       console.log('hiii');
     });
