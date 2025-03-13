@@ -550,8 +550,8 @@ const getRealEstateSimilar = (req, res) => {
 };
 
 const filter = (req, res) => {
-    const { main, sub, finall } = req.body;
-    var realestateFields = {
+    let { main, sub, finall } = req.body;
+    let realestateFields = {
         id: true,
         description: true,
         finalCityId: true,
