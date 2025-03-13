@@ -550,7 +550,7 @@ const getRealEstateSimilar = (req, res) => {
 };
 
 const filter = (req, res) => {
-    const {  sub, finall } = req.body;
+    const { main, sub, finall } = req.body;
     var realestateFields = {
         id: true,
         description: true,
@@ -574,7 +574,7 @@ const filter = (req, res) => {
         additionalFeatures: true,
         nearbyLocations: true,
         coverImage: true,
-        rentalDuration: true,
+        rentalDuration: false,
         ceilingHeight: true,
         totalFloors: true,
         finalTypeId: true,
@@ -596,6 +596,9 @@ const filter = (req, res) => {
 
     if (sub === 'مبنى' || finall === 'مبنى') {
         realestateFields.totalFloors = true;
+    }
+    if(main=='إيجار'){
+        realestateFields.rentalDuration=true;
     }
 
     // إرجاع JSON كاستجابة
