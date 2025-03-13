@@ -19,9 +19,8 @@ conn.connect((err) => {
   setInterval(() => {
     conn.query('SELECT 1', (err) => {
       if (err) console.error('Keep-Alive query failed:', err);
-      console.log('hiii');
     });
-  }, 5000);
+  }, 50000);
 });
 
 

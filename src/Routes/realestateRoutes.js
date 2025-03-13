@@ -14,6 +14,6 @@ router.post('/',realestateController.upload.fields([
 
 router.delete('/:id', realestateController.deleteRealEstate);
 router.delete('/deleteFile/:name', realestateController.deleteFile);
-
+router.post('/filter',realestateController.filter);
 router.put('/:id', realestateController.updateRealEstate);
 module.exports = router;

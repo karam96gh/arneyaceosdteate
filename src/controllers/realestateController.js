@@ -16,8 +16,7 @@ const getAllRealEstate = (req, res) => {
         f.name AS finalTypeName, 
             r.bedrooms, 
             r.cityId,
-                    r.buildingAge,
-
+             r.buildingAge,
             r.viewTime,
             r.neighborhoodId,
             r.bathrooms, 
@@ -550,6 +549,58 @@ const getRealEstateSimilar = (req, res) => {
     });
 };
 
+const filter = (req, res) => {
+    const {  sub, finall } = req.body;
+    var realestateFields = {
+        id: true,
+        description: true,
+        finalCityId: true,
+        bedrooms: true,
+        cityId: true,
+        buildingAge: true,
+        viewTime: true,
+        neighborhoodId: true,
+        bathrooms: true,
+        price: true,
+        title: true,
+        furnished: true,
+        buildingArea: true,
+        floorNumber: true,
+        facade: true,
+        paymentMethod: true,
+        mainCategoryId: true,
+        subCategoryId: true,
+        mainFeatures: true,
+        additionalFeatures: true,
+        nearbyLocations: true,
+        coverImage: true,
+        rentalDuration: true,
+        ceilingHeight: true,
+        totalFloors: true,
+        finalTypeId: true,
+        buildingItemId: true,
+        location: true
+    };
+
+    if (finall == null) finall = 's';
+
+    const allowedValues = ['محل', 'أرض', 'معرض', 'مخزن', 'مصنع', 'ورشة', 'مبنى'];
+
+    if (allowedValues.includes(sub) || allowedValues.includes(finall)) {
+        realestateFields.bathrooms = false;
+        realestateFields.bedrooms = false;
+        realestateFields.totalFloors = false;
+        realestateFields.floorNumber = false;
+        realestateFields.furnished = false;
+    }
+
+    if (sub === 'مبنى' || finall === 'مبنى') {
+        realestateFields.totalFloors = true;
+    }
+
+    // إرجاع JSON كاستجابة
+    return res.json(realestateFields);
+};
 
 module.exports = {
     getAllRealEstate,
@@ -560,6 +611,7 @@ module.exports = {
     getRealEstateByBuildingItemId, 
     getRealEstateSimilar,
     deleteFile,
+    filter,
     upload// Export the update function
 };
 
