@@ -584,7 +584,7 @@ const filter = (req, res) => {
 
     if (finall == null) finall = 's';
 
-    const allowedValues = ['محل', 'أرض', 'معرض', 'مخزن', 'مصنع', 'ورشة', 'مبنى'];
+    const allowedValues = ['محل', 'أرض', 'معرض', 'مخزن', 'مصنع', 'ورشة', 'مبنى','أراضي'];
 
     if (allowedValues.includes(sub) || allowedValues.includes(finall)) {
         realestateFields.bathrooms = false;
@@ -592,10 +592,14 @@ const filter = (req, res) => {
         realestateFields.totalFloors = false;
         realestateFields.floorNumber = false;
         realestateFields.furnished = false;
+        realestateFields.buildingAge=false;
+        realestateFields.ceilingHeight=false;
     }
 
     if (sub === 'مبنى' || finall === 'مبنى') {
         realestateFields.totalFloors = true;
+        realestateFields.buildingAge=true;
+
     }
     if(main=='إيجار'){
         realestateFields.rentalDuration=true;
