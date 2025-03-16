@@ -11,6 +11,7 @@ const getAllRealEstate = (req, res) => {
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
+                m.name AS finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
             r.bedrooms, 
