@@ -1,4 +1,4 @@
-const  pool = require('../config/db');
+const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
 // جلب كل المباني
@@ -8,9 +8,9 @@ exports.getBuildings = (req, res) => {
             if (!buildings.length) return res.json([]);
 
             // إنشاء وعود لجلب العناصر لكل مبنى
-            const buildingsWithItemsPromises = buildings.map(building => 
-                pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [building.id])
-                    .then(([items]) => ({ ...building, items }))
+            const buildingsWithItemsPromises = buildings.map(building =>
+                pool.promise().query('SELECT count(*) FROM realestate WHERE buildingItemId = ?', [building.id])
+                    .then((items) => ({ ...building, realEstateCount: items }))
             );
 
             // تنفيذ جميع الوعود وإرجاع النتيجة
@@ -23,11 +23,11 @@ exports.getBuildings = (req, res) => {
 // جلب مبنى معين مع العناصر الخاصة به
 exports.getBuildingById = (req, res) => {
     const { id } = req.params;
-     pool.promise().query('SELECT * FROM buildings WHERE id = ?', [id])
+    pool.promise().query('SELECT * FROM buildings WHERE id = ?', [id])
         .then(([building]) => {
             if (!building.length) return res.status(404).json({ message: 'Building not found' });
 
-             pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [id])
+            pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [id])
                 .then(([items]) => res.json({ ...building[0], items }))
                 .catch(err => res.status(500).json({ error: err.message }));
         })
@@ -36,52 +36,52 @@ exports.getBuildingById = (req, res) => {
 
 // إنشاء مبنى جديد
 exports.createBuilding = (req, res) => {
-    const { title, status ,location,buildingAge} = req.body;
+    const { title, status, location, buildingAge } = req.body;
     const id = uuidv4();
-     pool.promise().query('INSERT INTO buildings (id, title, status,location,buildingAge) VALUES (?, ?, ?,?,?)', [id, title, status,location,buildingAge])
-        .then(() => res.json({ id, title, status,location }))
+    pool.promise().query('INSERT INTO buildings (id, title, status,location,buildingAge) VALUES (?, ?, ?,?,?)', [id, title, status, location, buildingAge])
+        .then(() => res.json({ id, title, status, location }))
         .catch(err => res.status(500).json({ error: err.message }));
 };
 
 // تحديث مبنى
 exports.updateBuilding = (req, res) => {
-        const { id } = req.params;
-        const updates = req.body;
-    
-        // Ensure at least one field is provided for updating
-        if (!id) {
-            return res.status(400).json({ message: "Building ID is required" });
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Ensure at least one field is provided for updating
+    if (!id) {
+        return res.status(400).json({ message: "Building ID is required" });
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No fields provided to update" });
+    }
+
+    // Build dynamic SQL query
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+
+    const setClause = fields.map(field => `${field} = ?`).join(", ");
+    const sql = `UPDATE buildings SET ${setClause} WHERE id = ?`;
+
+    console.log("Executing SQL:", sql, [...values, id]);
+
+    pool.query(sql, [...values, id], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
         }
-    
-        if (Object.keys(updates).length === 0) {
-            return res.status(400).json({ message: "No fields provided to update" });
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ message: "Building not found" });
         }
-    
-        // Build dynamic SQL query
-        const fields = Object.keys(updates);
-        const values = Object.values(updates);
-    
-        const setClause = fields.map(field => `${field} = ?`).join(", ");
-        const sql = `UPDATE buildings SET ${setClause} WHERE id = ?`;
-    
-        console.log("Executing SQL:", sql, [...values, id]);
-    
-        pool.query(sql, [...values, id], (err, results) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            if (results.affectedRows === 0) {
-                return res.status(404).json({ message: "Building not found" });
-            }
-            res.status(200).json({ message: "Building updated successfully" });
-        });
-    };
-    
+        res.status(200).json({ message: "Building updated successfully" });
+    });
+};
+
 
 // حذف مبنى
 exports.deleteBuilding = (req, res) => {
     const { id } = req.params;
-     pool.promise().query('DELETE FROM buildings WHERE id = ?', [id])
+    pool.promise().query('DELETE FROM buildings WHERE id = ?', [id])
         .then(() => res.json({ message: 'Building deleted' }))
         .catch(err => res.status(500).json({ error: err.message }));
 };
