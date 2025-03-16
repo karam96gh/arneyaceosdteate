@@ -9,8 +9,11 @@ exports.getBuildings = (req, res) => {
 
             // إنشاء وعود لجلب العناصر لكل مبنى
             const buildingsWithItemsPromises = buildings.map(building =>
-                pool.promise().query('SELECT count(*) as realEstateCount FROM realestate WHERE buildingItemId = ?', [building.id])
-                    .then((items) => ({ ...building,  items }))
+                pool.promise().query(
+                    'SELECT count(*) as realEstateCount FROM realestate WHERE buildingItemId = ?', 
+                    [building.id]
+                )
+                .then(([rows]) => ({ ...building, realEstateCount: rows[0].realEstateCount }))
             );
 
             // تنفيذ جميع الوعود وإرجاع النتيجة
