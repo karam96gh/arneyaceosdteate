@@ -9,7 +9,7 @@ exports.getBuildings = (req, res) => {
 
             // إنشاء وعود لجلب العناصر لكل مبنى
             const buildingsWithItemsPromises = buildings.map(building => 
-                pool.promise().query('SELECT * FROM building_items WHERE building_id = ?', [building.id])
+                pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [building.id])
                     .then(([items]) => ({ ...building, items }))
             );
 
@@ -27,7 +27,7 @@ exports.getBuildingById = (req, res) => {
         .then(([building]) => {
             if (!building.length) return res.status(404).json({ message: 'Building not found' });
 
-             pool.promise().query('SELECT * FROM building_items WHERE building_id = ?', [id])
+             pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [id])
                 .then(([items]) => res.json({ ...building[0], items }))
                 .catch(err => res.status(500).json({ error: err.message }));
         })
