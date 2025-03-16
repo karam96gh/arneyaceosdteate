@@ -9,8 +9,8 @@ exports.getBuildings = (req, res) => {
 
             // إنشاء وعود لجلب العناصر لكل مبنى
             const buildingsWithItemsPromises = buildings.map(building =>
-                pool.promise().query('SELECT count(*) FROM realestate WHERE buildingItemId = ?', [building.id])
-                    .then(([items]) => ({ ...building, realEstateCount: items }))
+                pool.promise().query('SELECT count(*) as realEstateCount FROM realestate WHERE buildingItemId = ?', [building.id])
+                    .then(([items]) => ({ ...building,  items }))
             );
 
             // تنفيذ جميع الوعود وإرجاع النتيجة
