@@ -11,7 +11,6 @@ const getAllRealEstate = (req, res) => {
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
-                fc.name AS finalCityName,
         s.name AS subCategoryName, 
         f.name AS finalTypeName, 
             r.bedrooms, 
@@ -45,7 +44,6 @@ const getAllRealEstate = (req, res) => {
             JOIN maintype m ON r.mainCategoryId = m.id
     JOIN subtype s ON r.subCategoryId = s.id
     JOIN finaltype f ON r.finalTypeId = f.id
-        JOIN finalCity fc ON r.finalCityId = fc.id
 
     `;
 
