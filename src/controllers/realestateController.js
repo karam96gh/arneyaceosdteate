@@ -350,8 +350,8 @@ const addRealEstate = (req, res) => {
             price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?)
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId,createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?,?)
     `;
 
     conn.query(
@@ -359,7 +359,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId,NOW()],
         (err, results) => {
             if (err) {
             console.log(err.message);
