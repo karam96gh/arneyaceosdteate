@@ -8,6 +8,8 @@ const getAllRealEstate = (req, res) => {
             r.id, 
             r.description,
             r.finalCityId,
+                        r.createdAt,
+
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
@@ -97,6 +99,8 @@ const getRealEstateById = (req, res) => {
             r.id, 
             r.description,
             r.finalCityId,
+                        r.createdAt,
+
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
@@ -184,6 +188,7 @@ const getRealEstateByBuildingItemId = (req, res) => {
             r.id, 
             r.description,
             r.finalCityId,
+            r.createdAt,
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
@@ -494,6 +499,8 @@ const getRealEstateSimilar = (req, res) => {
             r.id, 
             r.description,
             r.finalCityId,
+                        r.createdAt,
+
             c.name AS cityName, 
             n.name AS neighborhoodName, 
                 m.name AS mainCategoryName,
