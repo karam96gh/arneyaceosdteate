@@ -12,7 +12,6 @@ const REAL_ESTATE_SELECT_FIELDS = `
     r.id, 
     r.description,
     r.finalCityId,
-    r.createdAt,
     c.name AS cityName, 
     n.name AS neighborhoodName, 
     m.name AS mainCategoryName,
@@ -198,6 +197,9 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024, // 5MB max file size
     }
 });
+
+// Create uploadImage middleware that matches the original export pattern
+const uploadImage = upload;
 
 // Add a new real estate listing
 const addRealEstate = async (req, res) => {
@@ -441,5 +443,5 @@ module.exports = {
     getRealEstateSimilar,
     deleteFile,
     filter,
-    uploadImage: upload // Export the upload middleware
+    uploadImage // Export the upload middleware
 };
