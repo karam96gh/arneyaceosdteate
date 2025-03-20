@@ -25,8 +25,8 @@ const getFinalCityByneighborhoodId = (req, res) => {
 
 // Add a new neighborhood
 const addFinalCity = (req, res) => {
-    const { name, neighborhoodId } = req.body;
-    const sql = 'INSERT INTO finalCity (name, neighborhoodId) VALUES (?, ?)';
+    const { name, neighborhoodId,location } = req.body;
+    const sql = 'INSERT INTO finalCity (name, neighborhoodId,location) VALUES (?, ?,?)';
     conn.query(sql, [name, neighborhoodId], (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
