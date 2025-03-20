@@ -359,7 +359,7 @@ const addRealEstate = (req, res) => {
         [price, title, cityId, neighborhoodId, bedrooms, bathrooms, furnished,
             buildingArea, floorNumber, facade, paymentMethod, mainCategoryId,
             subCategoryId, mainFeatures, additionalFeatures, nearbyLocations, coverImage,rentalDuration,
-            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId,NOW()],
+            ceilingHeight,totalFloors,finalTypeId,buildingItemId,viewTime,location,description,buildingAge,finalCityId,new Date()],
         (err, results) => {
             if (err) {
             console.log(err.message);
