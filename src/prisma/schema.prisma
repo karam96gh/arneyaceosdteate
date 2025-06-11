@@ -92,7 +92,7 @@ model Building {
   location     String         @default("0.0,0.0") @db.VarChar(250)
   buildingAge  String?        @db.VarChar(255)
   items        BuildingItem[]
-  realEstates  RealEstate[]
+  realEstates  RealEstate[]   // علاقة منفصلة للمباني
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -107,7 +107,7 @@ model BuildingItem {
   type        BuildingItemType
   buildingId  String           @db.Char(36)
   building    Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  realEstates RealEstate[]
+  realEstates RealEstate[]     // علاقة منفصلة لعناصر المباني
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -125,7 +125,9 @@ model RealEstate {
   price               Int
   title               String       @default("") @db.VarChar(100)
   finalTypeId         Int
-  buildingItemId      String?      @db.VarChar(255)
+  // ✅ إصلاح: فصل الحقلين
+  buildingId          String?      @db.Char(36)      // للمباني
+  buildingItemId      String?      @db.Char(36)      // لعناصر المباني
   location            String?      @db.VarChar(50)
   viewTime            String?      @db.VarChar(255)
   description         String?      @db.VarChar(1000)
@@ -133,14 +135,14 @@ model RealEstate {
   createdAt           DateTime?    @db.Date
   others              String?      @db.LongText // JSON format for additional properties
   
-  // Relations
+  // Relations - ✅ إصلاح: علاقات منفصلة
   city                City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
   neighborhood        Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
   mainCategory        MainType     @relation(fields: [mainCategoryId], references: [id], onDelete: Cascade)
   subCategory         SubType      @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
   finalType           FinalType    @relation(fields: [finalTypeId], references: [id], onDelete: Cascade)
   finalCity           FinalCity?   @relation(fields: [finalCityId], references: [id], onDelete: Cascade)
-  building            Building?    @relation(fields: [buildingItemId], references: [id], onDelete: SetNull)
+  building            Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   buildingItem        BuildingItem? @relation(fields: [buildingItemId], references: [id], onDelete: SetNull)
   files               File[]
   propertyValues      PropertyValue[]
