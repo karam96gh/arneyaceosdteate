@@ -1,58 +1,67 @@
-const conn = require('../config/db');
+const prisma = require('../config/prisma');
 
-// Get all files
-const getAllFiles = (req, res) => {
-    const sql = 'SELECT * FROM files';
-    conn.query(sql, (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(200).json(results);
-    });
+const getAllFiles = async (req, res) => {
+    try {
+        const files = await prisma.file.findMany({
+            include: {
+                realEstate: {
+                    select: { id: true, title: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.status(200).json(files);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-// Get files for a real estate
-const getFilesByRealEstateId = (req, res) => {
-    const { realestateId } = req.params;
-    const sql = 'SELECT * FROM files WHERE realestateId = ?';
-    conn.query(sql, [realestateId], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(200).json(results);
-    });
+const getFilesByRealEstateId = async (req, res) => {
+    try {
+        const { realestateId } = req.params;
+        const files = await prisma.file.findMany({
+            where: { realestateId: parseInt(realestateId) },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.status(200).json(files);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-// Add a new file
-const addFile = (req, res) => {
-    const { name, realestateId } = req.body;
-    const sql = 'INSERT INTO files (name, realestateId) VALUES (?, ?)';
-    conn.query(sql, [name, realestateId], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.status(201).json({ id: results.insertId, name, realestateId });
-    });
+const addFile = async (req, res) => {
+    try {
+        const { name, realestateId } = req.body;
+        const file = await prisma.file.create({
+            data: {
+                name,
+                realestateId: parseInt(realestateId)
+            }
+        });
+        res.status(201).json(file);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-// Delete a file
-const deleteFile = (req, res) => {
-    const { id } = req.params;
-    const sql = 'DELETE FROM files WHERE id = ?';
-    conn.query(sql, [id], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (results.affectedRows === 0) {
+const deleteFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.file.delete({
+            where: { id: parseInt(id) }
+        });
+        res.status(200).json({ message: 'File deleted successfully' });
+    } catch (error) {
+        if (error.code === 'P2025') {
             return res.status(404).json({ message: 'File not found' });
         }
-        res.status(200).json({ message: 'File deleted successfully' });
-    });
+        res.status(500).json({ error: error.message });
+    }
 };
 
 module.exports = {
     getAllFiles,
     getFilesByRealEstateId,
     addFile,
-    deleteFile,
+    deleteFile
 };

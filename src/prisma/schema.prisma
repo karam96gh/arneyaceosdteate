@@ -1,0 +1,220 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model City {
+  id            Int            @id @default(autoincrement())
+  name          String         @db.VarChar(100)
+  neighborhoods Neighborhood[]
+  realEstates   RealEstate[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("cities")
+}
+
+model Neighborhood {
+  id           Int          @id @default(autoincrement())
+  name         String       @db.VarChar(100)
+  cityId       Int
+  city         City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  finalCities  FinalCity[]
+  realEstates  RealEstate[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("neighborhoods")
+}
+
+model FinalCity {
+  id             Int          @id @default(autoincrement())
+  name           String?      @db.VarChar(100)
+  neighborhoodId Int
+  location       String       @default("32.5555,32.999") @db.VarChar(250)
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  realEstates    RealEstate[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("finalcity")
+}
+
+model MainType {
+  id          Int         @id @default(autoincrement())
+  name        String      @db.VarChar(50)
+  icon        String      @default("icon.png") @db.VarChar(50)
+  subTypes    SubType[]
+  realEstates RealEstate[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("maintype")
+}
+
+model SubType {
+  id          Int         @id @default(autoincrement())
+  mainId      Int
+  name        String      @db.VarChar(50)
+  mainType    MainType    @relation(fields: [mainId], references: [id], onDelete: Cascade)
+  finalTypes  FinalType[]
+  realEstates RealEstate[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("subtype")
+}
+
+model FinalType {
+  id          Int         @id @default(autoincrement())
+  subId       Int
+  name        String      @db.VarChar(255)
+  subType     SubType     @relation(fields: [subId], references: [id], onDelete: Cascade)
+  realEstates RealEstate[]
+  properties  Property[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("finaltype")
+}
+
+model Building {
+  id           String         @id @default(uuid()) @db.Char(36)
+  title        String         @db.VarChar(255)
+  status       BuildingStatus
+  location     String         @default("0.0,0.0") @db.VarChar(250)
+  buildingAge  String?        @db.VarChar(255)
+  items        BuildingItem[]
+  realEstates  RealEstate[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@map("buildings")
+}
+
+model BuildingItem {
+  id          String           @id @default(uuid()) @db.Char(36)
+  name        String           @db.VarChar(255)
+  price       String           @db.VarChar(50)
+  area        String?          @db.VarChar(50)
+  type        BuildingItemType
+  buildingId  String           @db.Char(36)
+  building    Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  realEstates RealEstate[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("building_items")
+}
+
+model RealEstate {
+  id                  Int          @id @default(autoincrement())
+  cityId              Int
+  neighborhoodId      Int
+  paymentMethod       String       @db.VarChar(100)
+  mainCategoryId      Int
+  subCategoryId       Int
+  coverImage          String       @db.VarChar(100)
+  price               Int
+  title               String       @default("") @db.VarChar(100)
+  finalTypeId         Int
+  buildingItemId      String?      @db.VarChar(255)
+  location            String?      @db.VarChar(50)
+  viewTime            String?      @db.VarChar(255)
+  description         String?      @db.VarChar(1000)
+  finalCityId         Int?
+  createdAt           DateTime?    @db.Date
+  others              String?      @db.LongText // JSON format for additional properties
+  
+  // Relations
+  city                City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  neighborhood        Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  mainCategory        MainType     @relation(fields: [mainCategoryId], references: [id], onDelete: Cascade)
+  subCategory         SubType      @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+  finalType           FinalType    @relation(fields: [finalTypeId], references: [id], onDelete: Cascade)
+  finalCity           FinalCity?   @relation(fields: [finalCityId], references: [id], onDelete: Cascade)
+  building            Building?    @relation(fields: [buildingItemId], references: [id], onDelete: SetNull)
+  buildingItem        BuildingItem? @relation(fields: [buildingItemId], references: [id], onDelete: SetNull)
+  files               File[]
+  propertyValues      PropertyValue[]
+
+  @@map("realestate")
+}
+
+model File {
+  id           Int        @id @default(autoincrement())
+  name         String     @db.VarChar(50)
+  realestateId Int
+  realEstate   RealEstate @relation(fields: [realestateId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("files")
+}
+
+model Property {
+  id             Int             @id @default(autoincrement())
+  finalTypeId    Int
+  propertyKey    String          @db.VarChar(100) // الاسم البرمجي للخاصية
+  propertyName   String          @db.VarChar(255) // الاسم الظاهر للخاصية
+  groupName      String          @db.VarChar(100) // اسم المجموعة
+  dataType       PropertyDataType
+  allowedValues  String?         @db.LongText // JSON format for multiple/single choice options
+  isFilter       Boolean         @default(false) // هل يظهر في الفلاتر
+  displayOrder   Int             @default(0) // ترتيب العرض
+  isRequired     Boolean         @default(false) // هل الحقل مطلوب
+  placeholder    String?         @db.VarChar(255) // النص التوضيحي
+  groupSelect    Boolean         @default(false)
+  unit           String?         @db.VarChar(10)
+  finalType      FinalType       @relation(fields: [finalTypeId], references: [id], onDelete: Cascade)
+  propertyValues PropertyValue[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([finalTypeId, propertyKey], name: "unique_property_per_type")
+  @@map("properties")
+}
+
+model PropertyValue {
+  id           Int        @id @default(autoincrement())
+  realEstateId Int
+  propertyId   Int
+  value        String?    @db.LongText
+  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
+  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([realEstateId, propertyId], name: "unique_property_value")
+  @@map("property_values")
+}
+
+enum BuildingStatus {
+  مكتمل        @map("مكتمل")
+  قيد_الإنشاء   @map("قيد الإنشاء")
+  مخطط        @map("مخطط")
+}
+
+enum BuildingItemType {
+  apartment @map("apartment")
+  shop      @map("shop")
+  villa     @map("villa")
+  office    @map("office")
+}
+
+enum PropertyDataType {
+  number          @map("number")
+  text            @map("text")
+  multiple_choice @map("multiple_choice")
+  single_choice   @map("single_choice")
+  date            @map("date")
+  boolean         @map("boolean")
+  file            @map("file")
+}

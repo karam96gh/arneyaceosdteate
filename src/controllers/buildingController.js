@@ -1,90 +1,221 @@
-const pool = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
+const prisma = require('../config/prisma');
 
-// جلب كل المباني
-exports.getBuildings = (req, res) => {
-    pool.promise().query('SELECT * FROM buildings')
-        .then(([buildings]) => {
-            if (!buildings.length) return res.json([]);
+// Get all buildings
+const getBuildings = async (req, res) => {
+    try {
+        const buildings = await prisma.building.findMany({
+            include: {
+                items: {
+                    include: {
+                        _count: {
+                            select: { realEstates: true }
+                        }
+                    }
+                },
+                _count: {
+                    select: {
+                        items: true,
+                        realEstates: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
 
-            // إنشاء وعود لجلب العناصر لكل مبنى
-            const buildingsWithItemsPromises = buildings.map(building =>
-                pool.promise().query(
-                    'SELECT count(*) as realEstateCount FROM realestate WHERE buildingItemId = ?', 
-                    [building.id]
-                )
-                .then(([rows]) => ({ ...building, realEstateCount: rows[0].realEstateCount }))
-            );
+        // إضافة عدد العقارات لكل مبنى
+        const buildingsWithCounts = buildings.map(building => ({
+            ...building,
+            realEstateCount: building._count.realEstates,
+            itemsCount: building._count.items
+        }));
 
-            // تنفيذ جميع الوعود وإرجاع النتيجة
-            return Promise.all(buildingsWithItemsPromises);
-        })
-        .then(buildingsWithItems => res.json(buildingsWithItems))
-        .catch(err => res.status(500).json({ error: err.message }));
-};
-
-// جلب مبنى معين مع العناصر الخاصة به
-exports.getBuildingById = (req, res) => {
-    const { id } = req.params;
-    pool.promise().query('SELECT * FROM buildings WHERE id = ?', [id])
-        .then(([building]) => {
-            if (!building.length) return res.status(404).json({ message: 'Building not found' });
-
-            pool.promise().query('SELECT * FROM realestate WHERE buildingItemId = ?', [id])
-                .then(([items]) => res.json({ ...building[0], items }))
-                .catch(err => res.status(500).json({ error: err.message }));
-        })
-        .catch(err => res.status(500).json({ error: err.message }));
-};
-
-// إنشاء مبنى جديد
-exports.createBuilding = (req, res) => {
-    const { title, status, location, buildingAge } = req.body;
-    const id = uuidv4();
-    pool.promise().query('INSERT INTO buildings (id, title, status,location,buildingAge) VALUES (?, ?, ?,?,?)', [id, title, status, location, buildingAge])
-        .then(() => res.json({ id, title, status, location }))
-        .catch(err => res.status(500).json({ error: err.message }));
-};
-
-// تحديث مبنى
-exports.updateBuilding = (req, res) => {
-    const { id } = req.params;
-    const updates = req.body;
-
-    // Ensure at least one field is provided for updating
-    if (!id) {
-        return res.status(400).json({ message: "Building ID is required" });
+        res.status(200).json(buildingsWithCounts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
+};
 
-    if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ message: "No fields provided to update" });
-    }
+// Get building by ID with items
+const getBuildingById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const building = await prisma.building.findUnique({
+            where: { id },
+            include: {
+                items: {
+                    include: {
+                        _count: {
+                            select: { realEstates: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'desc' }
+                },
+                realEstates: {
+                    include: {
+                        city: { select: { name: true } },
+                        neighborhood: { select: { name: true } },
+                        finalType: { select: { name: true } }
+                    },
+                    orderBy: { createdAt: 'desc' }
+                },
+                _count: {
+                    select: {
+                        items: true,
+                        realEstates: true
+                    }
+                }
+            }
+        });
 
-    // Build dynamic SQL query
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-
-    const setClause = fields.map(field => `${field} = ?`).join(", ");
-    const sql = `UPDATE buildings SET ${setClause} WHERE id = ?`;
-
-    console.log("Executing SQL:", sql, [...values, id]);
-
-    pool.query(sql, [...values, id], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
+        if (!building) {
+            return res.status(404).json({ message: 'Building not found' });
         }
-        if (results.affectedRows === 0) {
+
+        // تنسيق البيانات
+        const formattedBuilding = {
+            ...building,
+            items: building.items.map(item => ({
+                ...item,
+                realEstateCount: item._count.realEstates
+            })),
+            realEstateCount: building._count.realEstates,
+            itemsCount: building._count.items
+        };
+
+        res.status(200).json(formattedBuilding);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Create new building
+const createBuilding = async (req, res) => {
+    try {
+        const { title, status, location, buildingAge } = req.body;
+
+        if (!title || !status) {
+            return res.status(400).json({ 
+                message: 'Title and status are required' 
+            });
+        }
+
+        // التحقق من صحة status
+        const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+            });
+        }
+
+        const building = await prisma.building.create({
+            data: {
+                title,
+                status,
+                location: location || '0.0,0.0',
+                buildingAge
+            }
+        });
+
+        res.status(201).json(building);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Update building
+const updateBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        if (!id) {
+            return res.status(400).json({ message: "Building ID is required" });
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: "No fields provided to update" });
+        }
+
+        // إزالة القيم غير المحددة
+        Object.keys(updates).forEach(key => {
+            if (updates[key] === undefined) {
+                delete updates[key];
+            }
+        });
+
+        // التحقق من صحة status إذا تم تمريره
+        if (updates.status) {
+            const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
+            if (!validStatuses.includes(updates.status)) {
+                return res.status(400).json({ 
+                    message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+                });
+            }
+        }
+
+        const building = await prisma.building.update({
+            where: { id },
+            data: updates
+        });
+
+        res.status(200).json({ 
+            message: "Building updated successfully", 
+            building 
+        });
+    } catch (error) {
+        if (error.code === 'P2025') {
             return res.status(404).json({ message: "Building not found" });
         }
-        res.status(200).json({ message: "Building updated successfully" });
-    });
+        res.status(500).json({ error: error.message });
+    }
 };
 
+// Delete building
+const deleteBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
 
-// حذف مبنى
-exports.deleteBuilding = (req, res) => {
-    const { id } = req.params;
-    pool.promise().query('DELETE FROM buildings WHERE id = ?', [id])
-        .then(() => res.json({ message: 'Building deleted' }))
-        .catch(err => res.status(500).json({ error: err.message }));
+        // التحقق من وجود عقارات مرتبطة
+        const buildingWithDeps = await prisma.building.findUnique({
+            where: { id },
+            include: {
+                _count: {
+                    select: {
+                        items: true,
+                        realEstates: true
+                    }
+                }
+            }
+        });
+
+        if (!buildingWithDeps) {
+            return res.status(404).json({ message: 'Building not found' });
+        }
+
+        if (buildingWithDeps._count.realEstates > 0) {
+            return res.status(400).json({ 
+                message: 'Cannot delete building with existing real estates' 
+            });
+        }
+
+        await prisma.building.delete({
+            where: { id }
+        });
+
+        res.status(200).json({ message: 'Building deleted successfully' });
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ message: 'Building not found' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = {
+    getBuildings,
+    getBuildingById,
+    createBuilding,
+    updateBuilding,
+    deleteBuilding
 };
