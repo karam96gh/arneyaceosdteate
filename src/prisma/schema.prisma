@@ -92,7 +92,7 @@ model Building {
   location     String         @default("0.0,0.0") @db.VarChar(250)
   buildingAge  String?        @db.VarChar(255)
   items        BuildingItem[]
-  realEstates  RealEstate[]   // علاقة منفصلة للمباني
+  realEstates  RealEstate[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -105,9 +105,9 @@ model BuildingItem {
   price       String           @db.VarChar(50)
   area        String?          @db.VarChar(50)
   type        BuildingItemType
-  buildingId  String           @db.Char(36)
-  building    Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  realEstates RealEstate[]     // علاقة منفصلة لعناصر المباني
+  buildingId  String?          @map("building_id") @db.Char(36)
+  building    Building?        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  realEstates RealEstate[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -125,17 +125,16 @@ model RealEstate {
   price               Int
   title               String       @default("") @db.VarChar(100)
   finalTypeId         Int
-  // ✅ إصلاح: فصل الحقلين
-  buildingId          String?      @db.Char(36)      // للمباني
-  buildingItemId      String?      @db.Char(36)      // لعناصر المباني
+  buildingId          String?      @db.Char(36)
+  buildingItemId      String?      @db.Char(36)
   location            String?      @db.VarChar(50)
   viewTime            String?      @db.VarChar(255)
   description         String?      @db.VarChar(1000)
   finalCityId         Int?
-  createdAt           DateTime?    @db.Date
-  others              String?      @db.LongText // JSON format for additional properties
+  createdAt           DateTime?    @db.DateTime
+  others              String?      @db.LongText
   
-  // Relations - ✅ إصلاح: علاقات منفصلة
+  // Relations
   city                City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
   neighborhood        Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
   mainCategory        MainType     @relation(fields: [mainCategoryId], references: [id], onDelete: Cascade)
@@ -164,15 +163,15 @@ model File {
 model Property {
   id             Int             @id @default(autoincrement())
   finalTypeId    Int
-  propertyKey    String          @db.VarChar(100) // الاسم البرمجي للخاصية
-  propertyName   String          @db.VarChar(255) // الاسم الظاهر للخاصية
-  groupName      String          @db.VarChar(100) // اسم المجموعة
+  propertyKey    String          @db.VarChar(100)
+  propertyName   String          @db.VarChar(255)
+  groupName      String          @db.VarChar(100)
   dataType       PropertyDataType
-  allowedValues  String?         @db.LongText // JSON format for multiple/single choice options
-  isFilter       Boolean         @default(false) // هل يظهر في الفلاتر
-  displayOrder   Int             @default(0) // ترتيب العرض
-  isRequired     Boolean         @default(false) // هل الحقل مطلوب
-  placeholder    String?         @db.VarChar(255) // النص التوضيحي
+  allowedValues  String?         @db.LongText
+  isFilter       Boolean         @default(false)
+  displayOrder   Int             @default(0)
+  isRequired     Boolean         @default(false)
+  placeholder    String?         @db.VarChar(255)
   groupSelect    Boolean         @default(false)
   unit           String?         @db.VarChar(10)
   finalType      FinalType       @relation(fields: [finalTypeId], references: [id], onDelete: Cascade)
@@ -198,25 +197,26 @@ model PropertyValue {
   @@map("property_values")
 }
 
+// ✅ ENUMs مُصححة
 enum BuildingStatus {
-  مكتمل        @map("مكتمل")
-  قيد_الإنشاء   @map("قيد الإنشاء")
-  مخطط        @map("مخطط")
+  COMPLETED          @map("مكتمل")
+  UNDER_CONSTRUCTION @map("قيد الإنشاء")
+  PLANNED            @map("مخطط")
 }
 
 enum BuildingItemType {
-  apartment @map("apartment")
-  shop      @map("shop")
-  villa     @map("villa")
-  office    @map("office")
+  APARTMENT @map("apartment")
+  SHOP      @map("shop")
+  VILLA     @map("villa")
+  OFFICE    @map("office")
 }
 
 enum PropertyDataType {
-  number          @map("number")
-  text            @map("text")
-  multiple_choice @map("multiple_choice")
-  single_choice   @map("single_choice")
-  date            @map("date")
-  boolean         @map("boolean")
-  file            @map("file")
+  NUMBER          @map("number")
+  TEXT            @map("text")
+  MULTIPLE_CHOICE @map("multiple_choice")
+  SINGLE_CHOICE   @map("single_choice")
+  DATE            @map("date")
+  BOOLEAN         @map("boolean")
+  FILE            @map("file")
 }

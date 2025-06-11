@@ -107,11 +107,3 @@ module.exports = {
     prisma: () => dbManager.getPrisma()
 };
 
-// ============================================
-// src/config/prisma.js (الملف الجديد المحسن)
-// ============================================
-
-const { dbManager } = require('./database');
-
-// إزالة الـ PrismaClient القديم واستبداله بـ DatabaseManager
-module.exports = dbManager.getPrisma();

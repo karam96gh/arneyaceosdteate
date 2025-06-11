@@ -1,6 +1,7 @@
 // src/controllers/realestateController.js
 const { dbManager } = require('../config/database');
-const { uploadMiddlewares, deleteFile, getFileUrl } = require('../config/upload');
+const { uploadMiddlewares, deleteFile: deleteFileFromDisk, getFileUrl } = require('../config/upload');
+const path = require('path');
 
 // ✅ استخدام الـ middleware الموحد
 const upload = uploadMiddlewares.realEstate;
@@ -332,10 +333,10 @@ const addRealEstate = async (req, res) => {
         
         // حذف الملفات المرفوعة في حالة خطأ
         if (req.files?.coverImage?.[0]) {
-            deleteFile(req.files.coverImage[0].path);
+            deleteFileFromDisk(req.files.coverImage[0].path);
         }
         if (req.files?.files) {
-            req.files.files.forEach(file => deleteFile(file.path));
+            req.files.files.forEach(file => deleteFileFromDisk(file.path));
         }
         
         res.status(500).json({ error: error.message });
@@ -474,11 +475,11 @@ const deleteRealEstate = async (req, res) => {
 
         // حذف الملفات الفعلية من النظام
         if (realEstate.coverImage) {
-            deleteFile(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
+            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
         }
 
         realEstate.files.forEach(file => {
-            deleteFile(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, file.name));
+            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, file.name));
         });
 
         res.status(200).json({ 
@@ -682,8 +683,8 @@ const getRealEstateSimilar = async (req, res) => {
     }
 };
 
-// Delete file
-const deleteFile = async (req, res) => {
+// Delete file - ✅ إعادة تسمية لتجنب التضارب
+const deleteFileFromDB = async (req, res) => {
     try {
         const { name } = req.params;
         const prisma = dbManager.getPrisma();
@@ -694,7 +695,7 @@ const deleteFile = async (req, res) => {
 
         // حذف الملف الفعلي من النظام
         const filePath = path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, name);
-        const fileDeleted = deleteFile(filePath);
+        const fileDeleted = deleteFileFromDisk(filePath);
 
         res.status(200).json({ 
             message: 'File deleted successfully',
@@ -749,7 +750,6 @@ const filter = (req, res) => {
     return res.json(realestateFields);
 };
 
-
 module.exports = {
     getAllRealEstate,
     getRealEstateById,
@@ -758,7 +758,7 @@ module.exports = {
     updateRealEstate,
     getRealEstateByBuildingItemId,
     getRealEstateSimilar,
-    deleteFile,
+    deleteFile: deleteFileFromDB, // ✅ إصلاح التضارب
     filter,
     upload
 };
