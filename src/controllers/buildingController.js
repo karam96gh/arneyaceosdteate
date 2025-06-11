@@ -101,7 +101,7 @@ const createBuilding = async (req, res) => {
         }
 
         // التحقق من صحة status
-        const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
+        const validStatuses = ['مكتمل', 'قيد الإنشاء', 'مخطط'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
                 message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 

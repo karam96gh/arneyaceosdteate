@@ -200,9 +200,10 @@ model PropertyValue {
 // ✅ ENUMs مُصححة
 enum BuildingStatus {
   COMPLETED          @map("مكتمل")
-  UNDER_CONSTRUCTION @map("قيد الإنشاء")
+  UNDER_CONSTRUCTION @map("قيد_الإنشاء")     // إصلاح: استبدال المسافة بـ underscore
   PLANNED            @map("مخطط")
 }
+
 
 enum BuildingItemType {
   APARTMENT @map("apartment")

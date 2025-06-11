@@ -105,18 +105,28 @@ const uploadMiddlewares = {
 };
 
 // ✅ دالة حذف الملفات
-const deleteFile = (filePath) => {
+const deleteFile = async (filePath) => {
     try {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log(`✅ File deleted: ${filePath}`);
-            return true;
+        // التحقق من صحة المسار
+        if (!filePath || typeof filePath !== 'string') {
+            throw new Error('Invalid file path');
         }
-        console.log(`⚠️ File not found: ${filePath}`);
-        return false;
+
+        // التحقق من وجود الملف
+        await fs.promises.access(filePath, fs.constants.F_OK);
+        
+        // حذف الملف
+        await fs.promises.unlink(filePath);
+        
+        console.log(`✅ File deleted successfully: ${filePath}`);
+        return true;
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.warn(`⚠️ File not found: ${filePath}`);
+            return false;
+        }
         console.error(`❌ Error deleting file ${filePath}:`, error);
-        return false;
+        throw error;
     }
 };
 
