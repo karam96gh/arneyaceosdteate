@@ -1,6 +1,68 @@
+// 🛡️ الحل المحدث - مع إصلاح allowedValues
 const prisma = require('../config/prisma');
 
-// Get all properties
+// ✅ إضافة mapping للتحويل بين القيم
+const DATA_TYPE_MAPPING = {
+  // من القيم المرسلة -> إلى قيم Prisma Enum
+  'number': 'NUMBER',
+  'text': 'TEXT',
+  'multiple_choice': 'MULTIPLE_CHOICE',
+  'single_choice': 'SINGLE_CHOICE',
+  'date': 'DATE',
+  'boolean': 'BOOLEAN',
+  'file': 'FILE'
+};
+
+// ✅ العكس للقراءة من قاعدة البيانات
+const REVERSE_DATA_TYPE_MAPPING = {
+  'NUMBER': 'number',
+  'TEXT': 'text',
+  'MULTIPLE_CHOICE': 'multiple_choice',
+  'SINGLE_CHOICE': 'single_choice',
+  'DATE': 'date',
+  'BOOLEAN': 'boolean',
+  'FILE': 'file'
+};
+
+// ✅ دالة مساعدة للتحويل
+const convertDataType = (dataType, toDatabase = true) => {
+  if (toDatabase) {
+    return DATA_TYPE_MAPPING[dataType] || dataType;
+  } else {
+    return REVERSE_DATA_TYPE_MAPPING[dataType] || dataType;
+  }
+};
+
+// ✅ دالة مساعدة لتحويل allowedValues
+const parseAllowedValues = (allowedValues) => {
+  if (!allowedValues) return null;
+  
+  try {
+    // إذا كانت string، حول إلى array
+    if (typeof allowedValues === 'string') {
+      return JSON.parse(allowedValues);
+    }
+    // إذا كانت array بالفعل، أرجعها كما هي
+    if (Array.isArray(allowedValues)) {
+      return allowedValues;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Failed to parse allowedValues:', allowedValues);
+    return null;
+  }
+};
+
+// ✅ دالة مساعدة لتحويل البيانات المقروءة
+const formatPropertyForResponse = (property) => {
+  return {
+    ...property,
+    dataType: convertDataType(property.dataType, false), // تحويل للقراءة
+    allowedValues: parseAllowedValues(property.allowedValues) // ✅ تحويل إلى array
+  };
+};
+
+// Get all properties (محدثة)
 const getAllProperties = async (req, res) => {
     try {
         const properties = await prisma.property.findMany({
@@ -25,13 +87,15 @@ const getAllProperties = async (req, res) => {
             ]
         });
 
-        res.status(200).json(properties);
+        // ✅ تحويل dataType و allowedValues للعرض
+        const formattedProperties = properties.map(formatPropertyForResponse);
+        res.status(200).json(formattedProperties);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Get properties by final type ID
+// Get properties by final type ID (محدثة)
 const getPropertiesByFinalType = async (req, res) => {
     try {
         const { finalTypeId } = req.params;
@@ -50,13 +114,15 @@ const getPropertiesByFinalType = async (req, res) => {
             ]
         });
 
-        res.status(200).json(properties);
+        // ✅ تحويل dataType و allowedValues للعرض
+        const formattedProperties = properties.map(formatPropertyForResponse);
+        res.status(200).json(formattedProperties);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Get filter properties (properties marked as filters)
+// Get filter properties (محدثة)
 const getFilterProperties = async (req, res) => {
     try {
         const { finalTypeId } = req.query;
@@ -89,13 +155,14 @@ const getFilterProperties = async (req, res) => {
             ]
         });
 
-        res.status(200).json(properties);
+        const formattedProperties = properties.map(formatPropertyForResponse);
+        res.status(200).json(formattedProperties);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Get property by ID
+// Get property by ID (محدثة)
 const getPropertyById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -129,13 +196,14 @@ const getPropertyById = async (req, res) => {
             return res.status(404).json({ message: 'Property not found' });
         }
 
-        res.status(200).json(property);
+        const formattedProperty = formatPropertyForResponse(property);
+        res.status(200).json(formattedProperty);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Create a new property
+// Create a new property (محدثة)
 const createProperty = async (req, res) => {
     try {
         const {
@@ -153,114 +221,206 @@ const createProperty = async (req, res) => {
             unit
         } = req.body;
 
-        // Validate required fields
-        if (!finalTypeId || !propertyKey || !propertyName || !groupName || !dataType) {
-            return res.status(400).json({ 
-                message: 'Missing required fields: finalTypeId, propertyKey, propertyName, groupName, dataType' 
-            });
-        }
-
-        // Validate dataType
+        // ✅ التحقق من صحة dataType (استخدام القيم الأصلية)
         const validDataTypes = ['number', 'text', 'multiple_choice', 'single_choice', 'date', 'boolean', 'file'];
         if (!validDataTypes.includes(dataType)) {
             return res.status(400).json({ 
-                message: 'Invalid dataType. Must be one of: ' + validDataTypes.join(', ') 
+                message: 'Invalid dataType',
+                provided: dataType,
+                valid: validDataTypes
             });
         }
 
-        // Validate allowedValues for choice types
-        if ((dataType === 'multiple_choice' || dataType === 'single_choice') && !allowedValues) {
+        // التحقق من الحقول المطلوبة
+        if (!finalTypeId || !propertyKey || !propertyName || !groupName || !dataType) {
             return res.status(400).json({ 
-                message: 'allowedValues is required for multiple_choice and single_choice types' 
+                message: 'Missing required fields',
+                required: ['finalTypeId', 'propertyKey', 'propertyName', 'groupName', 'dataType']
             });
         }
 
-        // Validate file type configurations
-        if (dataType === 'file' && allowedValues) {
-            // allowedValues for file type should contain file extensions or MIME types
-            try {
-                const fileConfig = typeof allowedValues === 'string' ? JSON.parse(allowedValues) : allowedValues;
-                if (!fileConfig.extensions && !fileConfig.mimeTypes) {
+        // ✅ معالجة allowedValues - تحويل array إلى JSON string للحفظ
+        let processedAllowedValues = null;
+        if (allowedValues) {
+            if (Array.isArray(allowedValues)) {
+                // إذا كانت array، حولها إلى JSON string
+                processedAllowedValues = JSON.stringify(allowedValues);
+            } else if (typeof allowedValues === 'string') {
+                try {
+                    // تأكد من صحة JSON
+                    JSON.parse(allowedValues);
+                    processedAllowedValues = allowedValues;
+                } catch (error) {
                     return res.status(400).json({ 
-                        message: 'File type should specify allowed extensions or mimeTypes in allowedValues' 
+                        message: 'Invalid JSON format for allowedValues' 
                     });
                 }
-            } catch (error) {
-                return res.status(400).json({ message: 'Invalid file configuration in allowedValues' });
+            } else {
+                // إذا كانت object، حولها إلى JSON string
+                processedAllowedValues = JSON.stringify(allowedValues);
             }
         }
 
-        // Parse allowedValues if it's a string
-        let parsedAllowedValues = allowedValues;
-        if (typeof allowedValues === 'string') {
-            try {
-                parsedAllowedValues = JSON.parse(allowedValues);
-            } catch (error) {
-                return res.status(400).json({ message: 'Invalid JSON format for allowedValues' });
-            }
-        }
-
+        // ✅ إنشاء الخاصية مع تحويل dataType
         const property = await prisma.property.create({
             data: {
                 finalTypeId: parseInt(finalTypeId),
-                propertyKey,
-                propertyName,
-                groupName,
-                dataType,
-                allowedValues: parsedAllowedValues ? JSON.stringify(parsedAllowedValues) : null,
+                propertyKey: propertyKey.trim(),
+                propertyName: propertyName.trim(),
+                groupName: groupName.trim(),
+                dataType: convertDataType(dataType, true), // ✅ تحويل للقاعدة
+                allowedValues: processedAllowedValues,
                 isFilter: Boolean(isFilter),
-                displayOrder: parseInt(displayOrder),
+                displayOrder: parseInt(displayOrder) || 0,
                 isRequired: Boolean(isRequired),
-                placeholder,
+                placeholder: placeholder || null,
                 groupSelect: Boolean(groupSelect),
-                unit
+                unit: unit || null
             },
             include: {
                 finalType: true
             }
         });
 
-        res.status(201).json(property);
+        // ✅ تحويل للعرض
+        const formattedProperty = formatPropertyForResponse(property);
+        res.status(201).json({
+            message: 'Property created successfully',
+            property: formattedProperty
+        });
     } catch (error) {
+        console.error('Error creating property:', error);
+        
         if (error.code === 'P2002') {
             return res.status(400).json({ 
                 message: 'Property key already exists for this final type' 
             });
         }
         if (error.code === 'P2003') {
-            return res.status(400).json({ message: 'Invalid finalTypeId' });
+            return res.status(400).json({ 
+                message: 'Invalid finalTypeId' 
+            });
         }
+        
         res.status(500).json({ error: error.message });
     }
 };
 
-// Update a property
+// Bulk create properties (محدثة)
+const bulkCreateProperties = async (req, res) => {
+    try {
+        const { finalTypeId, properties } = req.body;
+
+        if (!finalTypeId || !Array.isArray(properties) || properties.length === 0) {
+            return res.status(400).json({ 
+                message: 'finalTypeId and properties array are required' 
+            });
+        }
+
+        // التحقق من وجود finalType
+        const finalType = await prisma.finalType.findUnique({
+            where: { id: parseInt(finalTypeId) }
+        });
+
+        if (!finalType) {
+            return res.status(404).json({ 
+                message: 'Final type not found'
+            });
+        }
+
+        // ✅ معالجة البيانات مع التحويل
+        const validDataTypes = ['number', 'text', 'multiple_choice', 'single_choice', 'date', 'boolean', 'file'];
+        
+        const propertiesData = properties.map((prop, index) => {
+            // التحقق من نوع البيانات
+            if (!validDataTypes.includes(prop.dataType)) {
+                throw new Error(`Invalid dataType "${prop.dataType}" at index ${index}`);
+            }
+
+            // ✅ معالجة allowedValues
+            let processedAllowedValues = null;
+            if (prop.allowedValues) {
+                if (Array.isArray(prop.allowedValues)) {
+                    // إذا كانت array، حولها إلى JSON string
+                    processedAllowedValues = JSON.stringify(prop.allowedValues);
+                } else if (typeof prop.allowedValues === 'string') {
+                    try {
+                        JSON.parse(prop.allowedValues);
+                        processedAllowedValues = prop.allowedValues;
+                    } catch (error) {
+                        throw new Error(`Invalid JSON in allowedValues at index ${index}`);
+                    }
+                } else {
+                    processedAllowedValues = JSON.stringify(prop.allowedValues);
+                }
+            }
+
+            return {
+                finalTypeId: parseInt(finalTypeId),
+                propertyKey: (prop.propertyKey || '').trim(),
+                propertyName: (prop.propertyName || '').trim(),
+                groupName: (prop.groupName || '').trim(),
+                dataType: convertDataType(prop.dataType, true), // ✅ تحويل للقاعدة
+                allowedValues: processedAllowedValues,
+                isFilter: Boolean(prop.isFilter),
+                displayOrder: parseInt(prop.displayOrder) || index,
+                isRequired: Boolean(prop.isRequired),
+                placeholder: prop.placeholder || null,
+                groupSelect: Boolean(prop.groupSelect),
+                unit: prop.unit || null
+            };
+        });
+
+        const createdProperties = await prisma.property.createMany({
+            data: propertiesData,
+            skipDuplicates: true
+        });
+
+        res.status(201).json({ 
+            message: `${createdProperties.count} properties created successfully`,
+            count: createdProperties.count,
+            total: properties.length
+        });
+    } catch (error) {
+        console.error('Error in bulk create properties:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Update property (محدثة)
 const updateProperty = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        // Remove undefined values
+        // إزالة القيم غير المحددة
         Object.keys(updateData).forEach(key => {
             if (updateData[key] === undefined) {
                 delete updateData[key];
             }
         });
 
-        // Convert string booleans to actual booleans
-        if ('isFilter' in updateData) updateData.isFilter = Boolean(updateData.isFilter);
-        if ('isRequired' in updateData) updateData.isRequired = Boolean(updateData.isRequired);
-        if ('groupSelect' in updateData) updateData.groupSelect = Boolean(updateData.groupSelect);
+        // تحويل dataType إذا تم تمريره
+        if (updateData.dataType) {
+            const validDataTypes = ['number', 'text', 'multiple_choice', 'single_choice', 'date', 'boolean', 'file'];
+            if (!validDataTypes.includes(updateData.dataType)) {
+                return res.status(400).json({ 
+                    message: 'Invalid dataType',
+                    provided: updateData.dataType,
+                    valid: validDataTypes
+                });
+            }
+            updateData.dataType = convertDataType(updateData.dataType, true); // ✅ تحويل للقاعدة
+        }
 
-        // Convert numeric fields
-        if ('finalTypeId' in updateData) updateData.finalTypeId = parseInt(updateData.finalTypeId);
-        if ('displayOrder' in updateData) updateData.displayOrder = parseInt(updateData.displayOrder);
-
-        // Handle allowedValues
+        // ✅ معالجة allowedValues
         if ('allowedValues' in updateData && updateData.allowedValues) {
-            if (typeof updateData.allowedValues === 'string') {
+            if (Array.isArray(updateData.allowedValues)) {
+                updateData.allowedValues = JSON.stringify(updateData.allowedValues);
+            } else if (typeof updateData.allowedValues === 'string') {
                 try {
-                    updateData.allowedValues = JSON.stringify(JSON.parse(updateData.allowedValues));
+                    JSON.parse(updateData.allowedValues);
+                    // إذا كان JSON صحيح، احتفظ به كما هو
                 } catch (error) {
                     return res.status(400).json({ message: 'Invalid JSON format for allowedValues' });
                 }
@@ -268,6 +428,13 @@ const updateProperty = async (req, res) => {
                 updateData.allowedValues = JSON.stringify(updateData.allowedValues);
             }
         }
+
+        // معالجة باقي البيانات...
+        if ('isFilter' in updateData) updateData.isFilter = Boolean(updateData.isFilter);
+        if ('isRequired' in updateData) updateData.isRequired = Boolean(updateData.isRequired);
+        if ('groupSelect' in updateData) updateData.groupSelect = Boolean(updateData.groupSelect);
+        if ('finalTypeId' in updateData) updateData.finalTypeId = parseInt(updateData.finalTypeId);
+        if ('displayOrder' in updateData) updateData.displayOrder = parseInt(updateData.displayOrder);
 
         const property = await prisma.property.update({
             where: { id: parseInt(id) },
@@ -277,7 +444,12 @@ const updateProperty = async (req, res) => {
             }
         });
 
-        res.status(200).json({ message: 'Property updated successfully', property });
+        // ✅ تحويل للعرض
+        const formattedProperty = formatPropertyForResponse(property);
+        res.status(200).json({ 
+            message: 'Property updated successfully', 
+            property: formattedProperty 
+        });
     } catch (error) {
         if (error.code === 'P2025') {
             return res.status(404).json({ message: 'Property not found' });
@@ -291,12 +463,12 @@ const updateProperty = async (req, res) => {
     }
 };
 
-// Delete a property
+// Delete property (بدون تغيير)
 const deleteProperty = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if property has values
+        // التحقق من وجود قيم للخاصية
         const propertyWithValues = await prisma.property.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -329,57 +501,7 @@ const deleteProperty = async (req, res) => {
     }
 };
 
-// Bulk create properties for a final type
-const bulkCreateProperties = async (req, res) => {
-    try {
-        const { finalTypeId, properties } = req.body;
-
-        if (!finalTypeId || !Array.isArray(properties) || properties.length === 0) {
-            return res.status(400).json({ 
-                message: 'finalTypeId and properties array are required' 
-            });
-        }
-
-        // Validate final type exists
-        const finalType = await prisma.finalType.findUnique({
-            where: { id: parseInt(finalTypeId) }
-        });
-
-        if (!finalType) {
-            return res.status(404).json({ message: 'Final type not found' });
-        }
-
-        // Prepare data for bulk creation
-        const propertiesData = properties.map((prop, index) => ({
-            finalTypeId: parseInt(finalTypeId),
-            propertyKey: prop.propertyKey,
-            propertyName: prop.propertyName,
-            groupName: prop.groupName,
-            dataType: prop.dataType,
-            allowedValues: prop.allowedValues ? JSON.stringify(prop.allowedValues) : null,
-            isFilter: Boolean(prop.isFilter),
-            displayOrder: prop.displayOrder || index,
-            isRequired: Boolean(prop.isRequired),
-            placeholder: prop.placeholder,
-            groupSelect: Boolean(prop.groupSelect),
-            unit: prop.unit
-        }));
-
-        const createdProperties = await prisma.property.createMany({
-            data: propertiesData,
-            skipDuplicates: true
-        });
-
-        res.status(201).json({ 
-            message: `${createdProperties.count} properties created successfully`,
-            count: createdProperties.count
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-// Get property groups for a final type
+// Get property groups (بدون تغيير)
 const getPropertyGroups = async (req, res) => {
     try {
         const { finalTypeId } = req.params;
