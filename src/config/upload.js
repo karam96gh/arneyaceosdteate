@@ -64,24 +64,12 @@ const fs = require('fs');
 // ✅ BASE_URL ثابت
 const BASE_URL = 'http://62.171.153.198:4002';
 
-// ✅ تعريف مسارات موحدة
+// ✅ تعريف مسارات موحدة أولاً
 const UPLOAD_PATHS = {
     REALESTATE: path.join(__dirname, '../uploads/realestate/'),
     ICONS: path.join(__dirname, '../uploads/icons/'),
     PROPERTIES: path.join(__dirname, '../uploads/properties/'),
     GENERAL: path.join(__dirname, '../uploads/general/')
-};
-
-// ✅ إنشاء المجلدات تلقائياً
-Object.values(UPLOAD_PATHS).forEach(uploadPath => {
-    fs.mkdirSync(uploadPath, { recursive: true });
-});
-
-// ✅ أنواع الملفات المسموحة
-const ALLOWED_TYPES = {
-    IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'],
-    VIDEOS: ['video/mp4', 'video/avi', 'video/mov'],
-    DOCUMENTS: ['application/pdf', 'application/doc', 'application/docx']
 };
 
 // ✅ المسارات القديمة للبحث عن الملفات
@@ -102,6 +90,18 @@ const OLD_PATHS = {
         'src/images/properties/',
         'uploads/properties/'
     ]
+};
+
+// ✅ إنشاء المجلدات تلقائياً
+Object.values(UPLOAD_PATHS).forEach(uploadPath => {
+    fs.mkdirSync(uploadPath, { recursive: true });
+});
+
+// ✅ أنواع الملفات المسموحة
+const ALLOWED_TYPES = {
+    IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'],
+    VIDEOS: ['video/mp4', 'video/avi', 'video/mov'],
+    DOCUMENTS: ['application/pdf', 'application/doc', 'application/docx']
 };
 
 // ✅ دالة البحث الذكي عن الملفات
