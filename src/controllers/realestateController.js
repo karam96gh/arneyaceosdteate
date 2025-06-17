@@ -1,6 +1,13 @@
 // src/controllers/realestateController.js
 const { dbManager } = require('../config/database');
-const { uploadMiddlewares, deleteFile: deleteFileFromDisk, getFileUrl } = require('../config/upload');
+const { 
+    uploadMiddlewares, 
+    deleteFile: deleteFileFromDisk, 
+    formatRealEstateFiles,
+    formatPropertyValues,
+    getFileUrl,
+    UPLOAD_PATHS 
+} = require('../config/upload');
 const path = require('path');
 
 // ✅ استخدام الـ middleware الموحد
@@ -19,7 +26,6 @@ const getAllRealEstate = async (req, res) => {
                 subCategory: { select: { id: true, name: true } },
                 finalType: { select: { id: true, name: true } },
                 finalCity: { select: { id: true, name: true } },
-                // ✅ إضافة العلاقات الجديدة
                 building: { select: { id: true, title: true, status: true } },
                 buildingItem: { select: { id: true, name: true, type: true } },
                 files: { select: { id: true, name: true } },
@@ -42,13 +48,17 @@ const getAllRealEstate = async (req, res) => {
             }
         });
 
-        // تنسيق البيانات
+        // تنسيق البيانات مع إضافة الروابط
         const formattedData = realEstates.map(realEstate => {
+            // معالجة قيم الخصائص مع الروابط
             const propertyValuesObj = {};
-            realEstate.propertyValues.forEach(pv => {
+            const formattedPropertyValues = formatPropertyValues(realEstate.propertyValues, req);
+            
+            formattedPropertyValues.forEach(pv => {
                 propertyValuesObj[pv.property.propertyKey] = {
                     value: pv.value,
-                    property: pv.property
+                    property: pv.property,
+                    ...(pv.fileInfo && { fileInfo: pv.fileInfo }) // إضافة معلومات الملف مع الرابط
                 };
             });
 
@@ -63,7 +73,6 @@ const getAllRealEstate = async (req, res) => {
                 finalCityName: realEstate.finalCity?.name,
                 subCategoryName: realEstate.subCategory.name,
                 finalTypeName: realEstate.finalType.name,
-                // ✅ إضافة بيانات المباني
                 buildingName: realEstate.building?.title,
                 buildingItemName: realEstate.buildingItem?.name,
                 buildingStatus: realEstate.building?.status,
@@ -76,13 +85,23 @@ const getAllRealEstate = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
+                
+                // ✅ معالجة ملفات العقار مع الروابط
                 coverImage: realEstate.coverImage,
+                coverImageUrl: getFileUrl('REALESTATE', realEstate.coverImage, req),
+                
                 finalTypeId: realEstate.finalTypeId,
-                // ✅ الحقول المنفصلة
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                files: realEstate.files.map(f => f.name),
+                
+                // ✅ الملفات مع الروابط
+                files: realEstate.files.map(f => ({
+                    id: f.id,
+                    filename: f.name,
+                    url: getFileUrl('REALESTATE', f.name, req)
+                })),
+                
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
             };
@@ -143,12 +162,15 @@ const getRealEstateById = async (req, res) => {
             return res.status(404).json({ message: 'Real estate not found' });
         }
 
-        // تنسيق البيانات مع تفاصيل أكثر
+        // تنسيق البيانات مع تفاصيل أكثر والروابط
         const propertyValuesObj = {};
-        realEstate.propertyValues.forEach(pv => {
+        const formattedPropertyValues = formatPropertyValues(realEstate.propertyValues, req);
+        
+        formattedPropertyValues.forEach(pv => {
             propertyValuesObj[pv.property.propertyKey] = {
                 value: pv.value,
-                property: pv.property
+                property: pv.property,
+                ...(pv.fileInfo && { fileInfo: pv.fileInfo })
             };
         });
 
@@ -173,12 +195,23 @@ const getRealEstateById = async (req, res) => {
             paymentMethod: realEstate.paymentMethod,
             mainCategoryId: realEstate.mainCategoryId,
             subCategoryId: realEstate.subCategoryId,
+            
+            // ✅ معالجة ملفات العقار مع الروابط
             coverImage: realEstate.coverImage,
+            coverImageUrl: getFileUrl('REALESTATE', realEstate.coverImage, req),
+            
             finalTypeId: realEstate.finalTypeId,
             buildingId: realEstate.buildingId,
             buildingItemId: realEstate.buildingItemId,
             location: realEstate.location,
-            files: realEstate.files.map(f => f.name),
+            
+            // ✅ الملفات مع الروابط والمعرفات
+            files: realEstate.files.map(f => ({
+                id: f.id,
+                filename: f.name,
+                url: getFileUrl('REALESTATE', f.name, req)
+            })),
+            
             properties: propertyValuesObj,
             others: realEstate.others ? JSON.parse(realEstate.others) : null
         };
@@ -214,26 +247,22 @@ const addRealEstate = async (req, res) => {
 
         const prisma = dbManager.getPrisma();
 
-        // ✅ التحقق من صحة المراجع
+        // التحقق من صحة المراجع
         const validationErrors = [];
 
-        // التحقق من وجود المدينة
         const city = await prisma.city.findUnique({ where: { id: parseInt(cityId) } });
         if (!city) validationErrors.push('City not found');
 
-        // التحقق من وجود الحي
         const neighborhood = await prisma.neighborhood.findUnique({ 
             where: { id: parseInt(neighborhoodId) } 
         });
         if (!neighborhood) validationErrors.push('Neighborhood not found');
 
-        // التحقق من النوع النهائي
         const finalType = await prisma.finalType.findUnique({ 
             where: { id: parseInt(finalTypeId) } 
         });
         if (!finalType) validationErrors.push('Final type not found');
 
-        // التحقق من المبنى (إذا تم تمريره)
         if (buildingId) {
             const building = await prisma.building.findUnique({ 
                 where: { id: buildingId } 
@@ -241,7 +270,6 @@ const addRealEstate = async (req, res) => {
             if (!building) validationErrors.push('Building not found');
         }
 
-        // التحقق من عنصر المبنى (إذا تم تمريره)
         if (buildingItemId) {
             const buildingItem = await prisma.buildingItem.findUnique({ 
                 where: { id: buildingItemId } 
@@ -258,7 +286,6 @@ const addRealEstate = async (req, res) => {
 
         // إنشاء العقار داخل transaction
         const result = await prisma.$transaction(async (tx) => {
-            // إنشاء العقار
             const realEstate = await tx.realEstate.create({
                 data: {
                     price: parseInt(price),
@@ -295,7 +322,6 @@ const addRealEstate = async (req, res) => {
             if (properties && typeof properties === 'object') {
                 const propertyValues = [];
                 for (const [propertyKey, value] of Object.entries(properties)) {
-                    // البحث عن الخاصية
                     const property = await tx.property.findFirst({
                         where: {
                             propertyKey,
@@ -322,10 +348,16 @@ const addRealEstate = async (req, res) => {
             return realEstate;
         });
 
+        // ✅ إضافة الروابط في الاستجابة
         res.status(201).json({ 
             id: result.id, 
             message: 'Real estate added successfully',
-            coverImageUrl: getFileUrl('REALESTATE', coverImage),
+            coverImage: coverImage,
+            coverImageUrl: getFileUrl('REALESTATE', coverImage, req),
+            files: files.map(filename => ({
+                filename,
+                url: getFileUrl('REALESTATE', filename, req)
+            })),
             filesCount: files.length
         });
     } catch (error) {
@@ -395,7 +427,6 @@ const updateRealEstate = async (req, res) => {
 
             // تحديث قيم الخصائص إذا تم تمريرها
             if (properties && typeof properties === 'object') {
-                // الحصول على نوع العقار النهائي
                 const realEstate = await tx.realEstate.findUnique({
                     where: { id: parseInt(id) },
                     select: { finalTypeId: true }
@@ -475,11 +506,11 @@ const deleteRealEstate = async (req, res) => {
 
         // حذف الملفات الفعلية من النظام
         if (realEstate.coverImage) {
-            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
+            deleteFileFromDisk(path.join(UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
         }
 
         realEstate.files.forEach(file => {
-            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, file.name));
+            deleteFileFromDisk(path.join(UPLOAD_PATHS.REALESTATE, file.name));
         });
 
         res.status(200).json({ 
@@ -536,13 +567,16 @@ const getRealEstateByBuildingItemId = async (req, res) => {
             });
         }
 
-        // تنسيق البيانات
+        // تنسيق البيانات مع الروابط
         const formattedData = realEstates.map(realEstate => {
             const propertyValuesObj = {};
-            realEstate.propertyValues.forEach(pv => {
+            const formattedPropertyValues = formatPropertyValues(realEstate.propertyValues, req);
+            
+            formattedPropertyValues.forEach(pv => {
                 propertyValuesObj[pv.property.propertyKey] = {
                     value: pv.value,
-                    property: pv.property
+                    property: pv.property,
+                    ...(pv.fileInfo && { fileInfo: pv.fileInfo })
                 };
             });
 
@@ -567,12 +601,22 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
+                
+                // ✅ معالجة الملفات مع الروابط
                 coverImage: realEstate.coverImage,
+                coverImageUrl: getFileUrl('REALESTATE', realEstate.coverImage, req),
+                
                 finalTypeId: realEstate.finalTypeId,
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                files: realEstate.files.map(f => f.name),
+                
+                files: realEstate.files.map(f => ({
+                    id: f.id,
+                    filename: f.name,
+                    url: getFileUrl('REALESTATE', f.name, req)
+                })),
+                
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
             };
@@ -619,11 +663,8 @@ const getRealEstateSimilar = async (req, res) => {
                     { id: { not: parseInt(id) } },
                     {
                         OR: [
-                            // نفس النوع النهائي (أولوية عالية)
                             { finalTypeId: realEstate.finalTypeId },
-                            // نفس النوع الفرعي (أولوية متوسطة)
                             { subCategoryId: realEstate.subCategoryId },
-                            // نفس النوع الرئيسي (أولوية منخفضة)
                             { mainCategoryId: realEstate.mainCategoryId }
                         ]
                     }
@@ -638,31 +679,35 @@ const getRealEstateSimilar = async (req, res) => {
                 finalCity: { select: { id: true, name: true } },
                 files: { select: { id: true, name: true } }
             },
-            take: 20 // نأخذ 20 ونرتبهم بـ scoring
+            take: 20
         });
 
-        // ترتيب حسب التشابه
+        // ترتيب حسب التشابه مع إضافة الروابط
         const scoredResults = similarRealEstates.map(item => {
             let score = 0;
             
-            // نفس النوع النهائي (+30 نقطة)
             if (item.finalTypeId === realEstate.finalTypeId) score += 30;
-            // نفس النوع الفرعي (+20 نقطة)
             if (item.subCategoryId === realEstate.subCategoryId) score += 20;
-            // نفس النوع الرئيسي (+10 نقاط)
             if (item.mainCategoryId === realEstate.mainCategoryId) score += 10;
-            // نفس المدينة (+15 نقطة)
             if (item.cityId === realEstate.cityId) score += 15;
-            // نفس الحي (+10 نقاط)
             if (item.neighborhoodId === realEstate.neighborhoodId) score += 10;
-            // سعر مقارب (+5 نقاط إذا الفرق أقل من 20%)
+            
             const priceDiff = Math.abs(item.price - realEstate.price) / realEstate.price;
             if (priceDiff < 0.2) score += 5;
 
-            return { ...item, similarityScore: score };
+            return { 
+                ...item, 
+                similarityScore: score,
+                // ✅ إضافة الروابط للعقارات المشابهة
+                coverImageUrl: getFileUrl('REALESTATE', item.coverImage, req),
+                files: item.files.map(f => ({
+                    id: f.id,
+                    filename: f.name,
+                    url: getFileUrl('REALESTATE', f.name, req)
+                }))
+            };
         });
 
-        // ترتيب حسب النقاط ثم التاريخ
         const sortedResults = scoredResults
             .sort((a, b) => {
                 if (b.similarityScore !== a.similarityScore) {
@@ -670,7 +715,7 @@ const getRealEstateSimilar = async (req, res) => {
                 }
                 return new Date(b.createdAt) - new Date(a.createdAt);
             })
-            .slice(0, 10); // أفضل 10 نتائج
+            .slice(0, 10);
 
         res.status(200).json({
             message: `Found ${sortedResults.length} similar properties`,
@@ -683,7 +728,7 @@ const getRealEstateSimilar = async (req, res) => {
     }
 };
 
-// Delete file - ✅ إعادة تسمية لتجنب التضارب
+// Delete file - إعادة تسمية لتجنب التضارب
 const deleteFileFromDB = async (req, res) => {
     try {
         const { name } = req.params;
@@ -694,7 +739,7 @@ const deleteFileFromDB = async (req, res) => {
         });
 
         // حذف الملف الفعلي من النظام
-        const filePath = path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, name);
+        const filePath = path.join(UPLOAD_PATHS.REALESTATE, name);
         const fileDeleted = deleteFileFromDisk(filePath);
 
         res.status(200).json({ 
@@ -725,8 +770,8 @@ const filter = (req, res) => {
         subCategoryId: true,
         coverImage: true,
         finalTypeId: true,
-        buildingId: true,      // ✅ حقل منفصل
-        buildingItemId: true,  // ✅ حقل منفصل
+        buildingId: true,
+        buildingItemId: true,
         location: true,
         properties: true
     };
@@ -758,7 +803,7 @@ module.exports = {
     updateRealEstate,
     getRealEstateByBuildingItemId,
     getRealEstateSimilar,
-    deleteFile: deleteFileFromDB, // ✅ إصلاح التضارب
+    deleteFile: deleteFileFromDB,
     filter,
     upload
 };

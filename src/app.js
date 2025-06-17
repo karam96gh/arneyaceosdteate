@@ -9,6 +9,7 @@ const app = express();
 // ✅ إستيراد النظام الموحد لقاعدة البيانات
 const { dbManager } = require('./config/database');
 const { uploadErrorHandler, checkDiskSpace, UPLOAD_PATHS } = require('./config/upload');
+const { urlHelper } = require('./middleware/urlHelper'); // ✅ إضافة URL Helper
 
 // Import routes
 const citiesRoutes = require('./routes/citiesRoutes');
@@ -69,6 +70,9 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
+// ✅ إضافة URL Helper middleware قبل المسارات
+app.use(urlHelper);
+
 // ✅ تطبيق middleware فحص مساحة القرص قبل uploads
 app.use('/api/realestate', checkDiskSpace);
 app.use('/images', checkDiskSpace);
@@ -90,11 +94,33 @@ app.use('/api', buildingRoutes);
 app.use('/images', require('./routes/uploadImage'));
 app.use('/api', require('./routes/upload_file'));
 
-// ✅ Static file serving مع الأمان
+// ✅ Static file serving مع الأمان والروابط المحدثة
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     maxAge: '1d', // cache للملفات
     etag: true,
-    lastModified: true
+    lastModified: true,
+    // ✅ إضافة headers للروابط المباشرة
+    setHeaders: (res, filePath) => {
+        // إضافة CORS headers للملفات
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET');
+        
+        // تحديد Content-Type حسب نوع الملف
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.mp4': 'video/mp4',
+            '.pdf': 'application/pdf'
+        };
+        
+        if (mimeTypes[ext]) {
+            res.set('Content-Type', mimeTypes[ext]);
+        }
+    }
 }));
 
 // Legacy static paths (للتوافق مع النظام القديم)
@@ -102,7 +128,7 @@ app.use(express.static(path.join(__dirname, './controllers/src/images')));
 app.use(express.static(path.join(__dirname, './images/products')));
 app.use('/images/properties', express.static(path.join(__dirname, './controllers/src/images/properties')));
 
-// ✅ Health check endpoint محسن
+// ✅ Health check endpoint محسن مع معلومات الروابط
 app.get('/health', async (req, res) => {
     try {
         const dbHealth = await dbManager.healthCheck();
@@ -113,7 +139,9 @@ app.get('/health', async (req, res) => {
             try {
                 uploadStats[type.toLowerCase()] = {
                     path: path,
-                    exists: require('fs').existsSync(path)
+                    exists: require('fs').existsSync(path),
+                    // ✅ إضافة رابط الوصول للملفات
+                    publicUrl: `${req.protocol}://${req.get('host')}/uploads/${type.toLowerCase()}/`
                 };
             } catch (error) {
                 uploadStats[type.toLowerCase()] = {
@@ -131,7 +159,12 @@ app.get('/health', async (req, res) => {
             version: '2.1.0',
             database: dbHealth ? 'connected' : 'disconnected',
             uploads: uploadStats,
-            environment: process.env.NODE_ENV || 'development'
+            environment: process.env.NODE_ENV || 'development',
+            // ✅ إضافة معلومات الخادم
+            server: {
+                baseUrl: `${req.protocol}://${req.get('host')}`,
+                uploadsBaseUrl: `${req.protocol}://${req.get('host')}/uploads/`
+            }
         });
     } catch (error) {
         res.status(503).json({
@@ -145,12 +178,19 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// ✅ API info endpoint
+// ✅ API info endpoint محدث
 app.get('/api', (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    
     res.json({
         name: 'Real Estate API',
         version: '2.1.0',
         description: 'Real Estate Management System API',
+        server: {
+            baseUrl: baseUrl,
+            uploadsUrl: `${baseUrl}/uploads/`,
+            timestamp: new Date().toISOString()
+        },
         endpoints: {
             cities: '/api/cities',
             neighborhoods: '/api/neighborhoods',
@@ -158,17 +198,28 @@ app.get('/api', (req, res) => {
             realEstate: '/api/realestate',
             properties: '/api/properties',
             buildings: '/api/buildings',
-            files: '/api/files'
+            files: '/api/files',
+            maintypes: '/api/maintypes',
+            subtypes: '/api/subtypes',
+            finaltypes: '/api/finaltypes'
+        },
+        uploads: {
+            realestate: `${baseUrl}/uploads/realestate/`,
+            icons: `${baseUrl}/uploads/icons/`,
+            properties: `${baseUrl}/uploads/properties/`,
+            general: `${baseUrl}/uploads/general/`
         },
         documentation: '/api/docs', // يمكن إضافة Swagger لاحقاً
         health: '/health'
     });
 });
 
-// ✅ Request logging middleware
+// ✅ Request logging middleware محدث
 if (process.env.NODE_ENV === 'development') {
     app.use((req, res, next) => {
-        console.log(`${new Date().toISOString()} - ${req.method} ${req.path}${req.query ? ` - Query: ${JSON.stringify(req.query)}` : ''}`);
+        const timestamp = new Date().toISOString();
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        console.log(`${timestamp} - ${req.method} ${req.path} - Base URL: ${baseUrl}${req.query ? ` - Query: ${JSON.stringify(req.query)}` : ''}`);
         next();
     });
 }
@@ -182,6 +233,7 @@ app.use((err, req, res, next) => {
         timestamp: new Date().toISOString(),
         method: req.method,
         url: req.url,
+        baseUrl: `${req.protocol}://${req.get('host')}`,
         error: err.message,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
@@ -214,19 +266,27 @@ app.use((err, req, res, next) => {
     res.status(err.statusCode || 500).json({ 
         error: 'Internal server error',
         message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+        timestamp: new Date().toISOString(),
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
 });
 
-// ✅ 404 handler
+// ✅ 404 handler محدث
 app.use('*', (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    
     res.status(404).json({ 
         error: 'Route not found',
         message: `Cannot ${req.method} ${req.originalUrl}`,
+        server: {
+            baseUrl: baseUrl,
+            timestamp: new Date().toISOString()
+        },
         availableRoutes: {
             api: '/api',
             health: '/health',
-            uploads: '/uploads'
+            uploads: '/uploads',
+            documentation: `${baseUrl}/api`
         }
     });
 });
@@ -270,13 +330,18 @@ const startServer = async () => {
         
         // بدء الخادم
         const server = app.listen(PORT, () => {
+            const baseUrl = `http://localhost:${PORT}`;
             console.log('🚀 ================================================');
             console.log(`🏠 Real Estate API Server Started Successfully!`);
             console.log(`📡 Port: ${PORT}`);
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`📊 Health check: http://localhost:${PORT}/health`);
-            console.log(`🏠 API info: http://localhost:${PORT}/api`);
-            console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+            console.log(`🔗 Base URL: ${baseUrl}`);
+            console.log(`📊 Health check: ${baseUrl}/health`);
+            console.log(`🏠 API info: ${baseUrl}/api`);
+            console.log(`📁 Uploads: ${baseUrl}/uploads`);
+            console.log(`🖼️  Real Estate Files: ${baseUrl}/uploads/realestate/`);
+            console.log(`🎯 Icons: ${baseUrl}/uploads/icons/`);
+            console.log(`📋 Properties: ${baseUrl}/uploads/properties/`);
             console.log('🚀 ================================================');
         });
 
