@@ -2,22 +2,6 @@ const prisma = require('../config/prisma');
 const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
-const { getFileUrl } = require('../config/upload');
-
-// ✅ دالة مساعدة لإضافة رابط الأيقونة
-const formatMaintypeWithIconUrl = (maintype, req = null) => {
-    return {
-        ...maintype,
-        iconUrl: getFileUrl('ICONS', maintype.icon, req),
-        // الاحتفاظ بالمسار القديم للتوافق
-        iconPath: maintype.icon
-    };
-};
-
-// ✅ دالة معالجة قائمة الأنواع الرئيسية مع الروابط
-const formatMaintypesWithIconUrls = (maintypes, req = null) => {
-    return maintypes.map(maintype => formatMaintypeWithIconUrl(maintype, req));
-};
 
 // Get all maintypes with subtypes
 const getAllMaintypes = async (req, res) => {
@@ -43,25 +27,20 @@ const getAllMaintypes = async (req, res) => {
             orderBy: { id: 'asc' }
         });
 
-        // تنسيق البيانات مع إضافة روابط الأيقونات
-        const maintypesWithSubtypes = maintypes.map(maintype => {
-            const formattedMaintype = formatMaintypeWithIconUrl(maintype, req);
-            
-            return {
-                id: formattedMaintype.id,
-                name: formattedMaintype.name,
-                icon: formattedMaintype.icon,
-                iconUrl: formattedMaintype.iconUrl, // ✅ الرابط الكامل للأيقونة
-                createdAt: formattedMaintype.createdAt,
-                updatedAt: formattedMaintype.updatedAt,
-                subtypes: maintype.subTypes.map(subtype => ({
-                    ...subtype,
-                    realEstateCount: subtype._count.realEstates
-                })),
-                subtypeCount: maintype._count.subTypes,
-                realEstateCount: maintype._count.realEstates
-            };
-        });
+        // تنسيق البيانات لتتوافق مع الـ API القديم
+        const maintypesWithSubtypes = maintypes.map(maintype => ({
+            id: maintype.id,
+            name: maintype.name,
+            icon: maintype.icon,
+            createdAt: maintype.createdAt,
+            updatedAt: maintype.updatedAt,
+            subtypes: maintype.subTypes.map(subtype => ({
+                ...subtype,
+                realEstateCount: subtype._count.realEstates
+            })),
+            subtypeCount: maintype._count.subTypes,
+            realEstateCount: maintype._count.realEstates
+        }));
 
         res.status(200).json(maintypesWithSubtypes);
     } catch (error) {
@@ -100,16 +79,13 @@ const getMaintypeById = async (req, res) => {
             return res.status(404).json({ message: 'Maintype not found' });
         }
 
-        // تنسيق البيانات مع الرابط
-        const formattedMaintype = formatMaintypeWithIconUrl(maintype, req);
-
-        const response = {
-            id: formattedMaintype.id,
-            name: formattedMaintype.name,
-            icon: formattedMaintype.icon,
-            iconUrl: formattedMaintype.iconUrl, // ✅ الرابط الكامل للأيقونة
-            createdAt: formattedMaintype.createdAt,
-            updatedAt: formattedMaintype.updatedAt,
+        // تنسيق البيانات
+        const formattedMaintype = {
+            id: maintype.id,
+            name: maintype.name,
+            icon: maintype.icon,
+            createdAt: maintype.createdAt,
+            updatedAt: maintype.updatedAt,
             subtypes: maintype.subTypes.map(subtype => ({
                 ...subtype,
                 realEstateCount: subtype._count.realEstates
@@ -118,7 +94,7 @@ const getMaintypeById = async (req, res) => {
             realEstateCount: maintype._count.realEstates
         };
 
-        res.status(200).json(response);
+        res.status(200).json(formattedMaintype);
     } catch (error) {
         console.error('Error getting maintype by ID:', error);
         res.status(500).json({ error: error.message });
@@ -129,12 +105,13 @@ const getMaintypeById = async (req, res) => {
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadPath = path.join(__dirname, 'src/images/');
-        fs.mkdirSync(uploadPath, { recursive: true });
+        fs.mkdirSync(uploadPath, { recursive: true }); // التأكد من إنشاء المجلد تلقائيًا
         cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         try {
             const fileExtension = path.extname(file.originalname); 
+            // إنشاء اسم فريد مع الاحتفاظ بالامتداد
             const uniqueName = `${Date.now()}${fileExtension}`;
             cb(null, uniqueName);
         } catch (err) {
@@ -147,6 +124,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage,
     fileFilter: (req, file, cb) => {
+        // فحص نوع الملف - الصور فقط
         const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         if (allowedMimeTypes.includes(file.mimetype)) {
             cb(null, true);
@@ -175,6 +153,7 @@ const addMaintype = async (req, res) => {
         });
 
         if (existingMaintype) {
+            // حذف الملف المرفوع إذا كان الاسم مكرر
             if (req.file) {
                 const filePath = path.join(__dirname, 'src/images/', req.file.filename);
                 if (fs.existsSync(filePath)) {
@@ -187,25 +166,21 @@ const addMaintype = async (req, res) => {
         const maintype = await prisma.mainType.create({
             data: {
                 name,
-                icon: icon || 'icon.png'
+                icon: icon || 'icon.png' // قيمة افتراضية
             }
         });
 
         console.log('Created maintype with icon:', icon);
-        
-        // ✅ إضافة الرابط في الاستجابة
-        const response = {
+        res.status(201).json({
             id: maintype.id,
             name: maintype.name,
             icon: maintype.icon,
-            iconUrl: getFileUrl('ICONS', maintype.icon, req), // ✅ الرابط الكامل
             createdAt: maintype.createdAt
-        };
-
-        res.status(201).json(response);
+        });
     } catch (error) {
         console.error('Error adding maintype:', error);
         
+        // حذف الملف المرفوع في حالة خطأ
         if (req.file) {
             const filePath = path.join(__dirname, 'src/images/', req.file.filename);
             if (fs.existsSync(filePath)) {
@@ -224,9 +199,10 @@ const updateMaintype = async (req, res) => {
         const updates = req.body;
 
         if (req.file) {
-            updates.icon = req.file.filename;
+            updates.icon = req.file.filename; // تعيين اسم الصورة الجديدة
         }
 
+        // إزالة القيم غير المحددة
         Object.keys(updates).forEach(key => {
             if (updates[key] === undefined) {
                 delete updates[key];
@@ -237,7 +213,7 @@ const updateMaintype = async (req, res) => {
             return res.status(400).json({ message: 'No fields provided to update' });
         }
 
-        // التحقق من تكرار الاسم
+        // التحقق من تكرار الاسم (إذا تم تحديث الاسم)
         if (updates.name) {
             const existingMaintype = await prisma.mainType.findFirst({
                 where: {
@@ -247,6 +223,7 @@ const updateMaintype = async (req, res) => {
             });
 
             if (existingMaintype) {
+                // حذف الملف المرفوع إذا كان الاسم مكرر
                 if (req.file) {
                     const filePath = path.join(__dirname, 'src/images/', req.file.filename);
                     if (fs.existsSync(filePath)) {
@@ -257,12 +234,13 @@ const updateMaintype = async (req, res) => {
             }
         }
 
-        // الحصول على معلومات النوع الرئيسي القديم
+        // 🔍 الحصول على معلومات النوع الرئيسي القديم
         const oldMaintype = await prisma.mainType.findUnique({
             where: { id: parseInt(id) }
         });
 
         if (!oldMaintype) {
+            // حذف الملف المرفوع إذا لم يوجد النوع
             if (req.file) {
                 const filePath = path.join(__dirname, 'src/images/', req.file.filename);
                 if (fs.existsSync(filePath)) {
@@ -272,9 +250,9 @@ const updateMaintype = async (req, res) => {
             return res.status(404).json({ message: 'Maintype not found' });
         }
 
-        const oldIcon = oldMaintype.icon;
+        const oldIcon = oldMaintype.icon; // اسم الأيقونة القديمة
 
-        // تحديث بيانات maintype
+        // 🔄 تحديث بيانات maintype
         const updatedMaintype = await prisma.mainType.update({
             where: { id: parseInt(id) },
             data: updates,
@@ -288,12 +266,12 @@ const updateMaintype = async (req, res) => {
             }
         });
 
-        // حذف الصورة القديمة إن وجدت وتم رفع صورة جديدة
+        // 🗑️ حذف الصورة القديمة إن وجدت وتم رفع صورة جديدة
         if (req.file && oldIcon && oldIcon !== 'icon.png') {
             const oldIconPath = path.join(__dirname, 'src/images/', oldIcon);
             if (fs.existsSync(oldIconPath)) {
                 try {
-                    fs.unlinkSync(oldIconPath);
+                    fs.unlinkSync(oldIconPath); // حذف الصورة القديمة
                     console.log('Deleted old icon:', oldIcon);
                 } catch (error) {
                     console.warn('Could not delete old icon:', error.message);
@@ -301,24 +279,21 @@ const updateMaintype = async (req, res) => {
             }
         }
 
-        // ✅ إضافة الرابط في الاستجابة
-        const response = {
+        res.status(200).json({
             message: 'Maintype updated successfully',
             maintype: {
                 id: updatedMaintype.id,
                 name: updatedMaintype.name,
                 icon: updatedMaintype.icon,
-                iconUrl: getFileUrl('ICONS', updatedMaintype.icon, req), // ✅ الرابط الكامل
                 updatedAt: updatedMaintype.updatedAt,
                 subtypeCount: updatedMaintype._count.subTypes,
                 realEstateCount: updatedMaintype._count.realEstates
             }
-        };
-
-        res.status(200).json(response);
+        });
     } catch (error) {
         console.error('Error updating maintype:', error);
         
+        // حذف الملف المرفوع في حالة خطأ
         if (req.file) {
             const filePath = path.join(__dirname, 'src/images/', req.file.filename);
             if (fs.existsSync(filePath)) {
@@ -339,6 +314,7 @@ const deleteMaintype = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // التحقق من وجود subtypes أو real estates مرتبطة
         const maintypeWithDeps = await prisma.mainType.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -355,6 +331,7 @@ const deleteMaintype = async (req, res) => {
             return res.status(404).json({ message: 'Maintype not found' });
         }
 
+        // منع الحذف إذا كان هناك عقارات مرتبطة
         if (maintypeWithDeps._count.realEstates > 0) {
             return res.status(400).json({ 
                 message: `Cannot delete maintype. It has ${maintypeWithDeps._count.realEstates} associated real estates.`,
@@ -363,6 +340,7 @@ const deleteMaintype = async (req, res) => {
             });
         }
 
+        // منع الحذف إذا كان هناك subtypes مرتبطة
         if (maintypeWithDeps._count.subTypes > 0) {
             return res.status(400).json({ 
                 message: `Cannot delete maintype. It has ${maintypeWithDeps._count.subTypes} associated subtypes.`,
@@ -372,11 +350,12 @@ const deleteMaintype = async (req, res) => {
 
         const oldIcon = maintypeWithDeps.icon;
 
+        // حذف النوع الرئيسي
         await prisma.mainType.delete({
             where: { id: parseInt(id) }
         });
 
-        // حذف أيقونة النوع المحذوف إن وجدت
+        // 🗑️ حذف أيقونة النوع المحذوف إن وجدت
         if (oldIcon && oldIcon !== 'icon.png') {
             const oldIconPath = path.join(__dirname, 'src/images/', oldIcon);
             if (fs.existsSync(oldIconPath)) {
@@ -411,7 +390,6 @@ const getMaintypeStats = async (req, res) => {
             select: {
                 id: true,
                 name: true,
-                icon: true,
                 _count: {
                     select: {
                         subTypes: true,
@@ -429,8 +407,6 @@ const getMaintypeStats = async (req, res) => {
             breakdown: stats.map(maintype => ({
                 id: maintype.id,
                 name: maintype.name,
-                icon: maintype.icon,
-                iconUrl: getFileUrl('ICONS', maintype.icon, req), // ✅ الرابط الكامل
                 subtypesCount: maintype._count.subTypes,
                 realEstatesCount: maintype._count.realEstates
             }))
@@ -455,15 +431,7 @@ const getMaintypesForSelect = async (req, res) => {
             orderBy: { name: 'asc' }
         });
 
-        // ✅ إضافة الروابط للأيقونات
-        const formattedMaintypes = maintypes.map(maintype => ({
-            id: maintype.id,
-            name: maintype.name,
-            icon: maintype.icon,
-            iconUrl: getFileUrl('ICONS', maintype.icon, req)
-        }));
-
-        res.status(200).json(formattedMaintypes);
+        res.status(200).json(maintypes);
     } catch (error) {
         console.error('Error getting maintypes for select:', error);
         res.status(500).json({ error: error.message });
@@ -478,7 +446,5 @@ module.exports = {
     deleteMaintype,
     getMaintypeStats,
     getMaintypesForSelect,
-    formatMaintypeWithIconUrl,
-    formatMaintypesWithIconUrls,
     upload
 };
