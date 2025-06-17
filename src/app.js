@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 4002;
@@ -9,6 +10,30 @@ const app = express();
 // ✅ إستيراد النظام الموحد لقاعدة البيانات
 const { dbManager } = require('./config/database');
 const { uploadErrorHandler, checkDiskSpace, UPLOAD_PATHS } = require('./config/upload');
+
+// ✅ التأكد من إنشاء المجلدات المطلوبة
+const ensureDirectories = () => {
+    const requiredDirs = [
+        'uploads',
+        'uploads/realestate',
+        'uploads/icons', 
+        'uploads/properties',
+        'uploads/general',
+        'src/images',
+        'src/controllers/src/images'
+    ];
+
+    requiredDirs.forEach(dir => {
+        const fullPath = path.join(__dirname, dir);
+        if (!fs.existsSync(fullPath)) {
+            fs.mkdirSync(fullPath, { recursive: true });
+            console.log(`✅ Created directory: ${dir}`);
+        }
+    });
+};
+
+// إنشاء المجلدات عند بدء التطبيق
+ensureDirectories();
 
 // Import routes
 const citiesRoutes = require('./routes/citiesRoutes');
@@ -93,6 +118,31 @@ app.use('/api', require('./routes/upload_file'));
 // ✅ Static file serving مع الأمان - المسارات الجديدة
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     maxAge: '1d', // cache للملفات
+    etag: true,
+    lastModified: true
+}));
+
+// ✅ مسارات فرعية محددة للوضوح
+app.use('/uploads/realestate', express.static(path.join(__dirname, 'uploads/realestate'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/uploads/icons', express.static(path.join(__dirname, 'uploads/icons'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/uploads/properties', express.static(path.join(__dirname, 'uploads/properties'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/uploads/general', express.static(path.join(__dirname, 'uploads/general'), {
+    maxAge: '1d',
     etag: true,
     lastModified: true
 }));
@@ -195,6 +245,33 @@ app.get('/api', (req, res) => {
         },
         documentation: '/api/docs', // يمكن إضافة Swagger لاحقاً
         health: '/health'
+    });
+});
+
+// ✅ Diagnostic endpoint لفحص الملفات
+app.get('/api/files/check/:type/:filename', (req, res) => {
+    const { type, filename } = req.params;
+    
+    const checkPaths = [
+        path.join(__dirname, `uploads/${type}`, filename),
+        path.join(__dirname, 'src/images', filename),
+        path.join(__dirname, 'src/controllers/src/images', filename)
+    ];
+    
+    const results = checkPaths.map(filePath => ({
+        path: filePath,
+        exists: fs.existsSync(filePath),
+        url: filePath.replace(__dirname, `http://62.171.153.198:4002`)
+            .replace(/\\/g, '/')
+            .replace('/src/', '/')
+            .replace('/controllers/', '/')
+    }));
+    
+    res.json({
+        filename,
+        type,
+        results,
+        found: results.some(r => r.exists)
     });
 });
 
