@@ -7,6 +7,9 @@ router.get('/:id', realestateController.getRealEstateById);
 router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
 router.get('/similar/:id', realestateController.getRealEstateSimilar);
 
+// ✅ route للاختبار (يمكن حذفه لاحقاً)
+router.get('/test/files', realestateController.testFileSystem);
+
 router.post('/',realestateController.upload.fields([
     { name: 'coverImage', maxCount: 1 }, // الغلاف
     { name: 'files', maxCount: 10 } // ملفات إضافية (اختياري)
@@ -16,4 +19,5 @@ router.delete('/:id', realestateController.deleteRealEstate);
 router.delete('/deleteFile/:name', realestateController.deleteFile);
 router.post('/filter',realestateController.filter);
 router.put('/:id', realestateController.updateRealEstate);
+
 module.exports = router;

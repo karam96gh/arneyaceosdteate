@@ -90,17 +90,50 @@ app.use('/api', buildingRoutes);
 app.use('/images', require('./routes/uploadImage'));
 app.use('/api', require('./routes/upload_file'));
 
-// ✅ Static file serving مع الأمان
+// ✅ Static file serving مع الأمان - المسارات الجديدة
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     maxAge: '1d', // cache للملفات
     etag: true,
     lastModified: true
 }));
 
-// Legacy static paths (للتوافق مع النظام القديم)
-app.use(express.static(path.join(__dirname, './controllers/src/images')));
-app.use(express.static(path.join(__dirname, './images/products')));
-app.use('/images/properties', express.static(path.join(__dirname, './controllers/src/images/properties')));
+// ✅ Legacy static paths (للتوافق مع النظام القديم والملفات الموجودة)
+app.use('/images', express.static(path.join(__dirname, 'src/images'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/images/products', express.static(path.join(__dirname, 'src/images/products'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/images/properties', express.static(path.join(__dirname, 'src/controllers/src/images/properties'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+// ✅ إضافة مسارات static إضافية للملفات القديمة
+app.use('/src/images', express.static(path.join(__dirname, 'src/images'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
 
 // ✅ Health check endpoint محسن
 app.get('/health', async (req, res) => {
@@ -277,6 +310,7 @@ const startServer = async () => {
             console.log(`📊 Health check: http://localhost:${PORT}/health`);
             console.log(`🏠 API info: http://localhost:${PORT}/api`);
             console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+            console.log(`📁 Legacy Images: http://localhost:${PORT}/images`);
             console.log('🚀 ================================================');
         });
 
