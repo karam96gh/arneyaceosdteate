@@ -1,5 +1,6 @@
 // uploadImage_controller.js
 const multer = require('multer');
+const { BASE_URL } = require('../config/upload');
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
@@ -37,9 +38,17 @@ const uploadImage = (req, res) => {
 
     // Handle the uploaded image here, e.g., save the file path in the database
     const fileName = req.file.filename;
+    
+    // ✅ إنشاء مسار كامل للملف
+    const fullFileUrl = `${BASE_URL}/images/${fileName}`;
       
     // Return a success response
-    return res.status(200).json({ message: 'Image uploaded successfully', fileName });
+    return res.status(200).json({ 
+      message: 'Image uploaded successfully', 
+      fileName: fileName,
+      // ✅ إضافة المسار الكامل
+      fileUrl: fullFileUrl
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Internal server error' });

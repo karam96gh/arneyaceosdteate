@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { buildRealEstateFileUrl } = require('../config/upload');
 
 const getAllFiles = async (req, res) => {
     try {
@@ -10,7 +11,17 @@ const getAllFiles = async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        res.status(200).json(files);
+
+        // ✅ تحويل أسماء الملفات إلى مسارات كاملة
+        const formattedFiles = files.map(file => ({
+            ...file,
+            // تحويل name إلى مسار كامل
+            name: buildRealEstateFileUrl(file.name),
+            // الاحتفاظ باسم الملف الأصلي في حقل منفصل
+            fileName: file.name
+        }));
+
+        res.status(200).json(formattedFiles);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -23,7 +34,17 @@ const getFilesByRealEstateId = async (req, res) => {
             where: { realestateId: parseInt(realestateId) },
             orderBy: { createdAt: 'desc' }
         });
-        res.status(200).json(files);
+
+        // ✅ تحويل أسماء الملفات إلى مسارات كاملة
+        const formattedFiles = files.map(file => ({
+            ...file,
+            // تحويل name إلى مسار كامل
+            name: buildRealEstateFileUrl(file.name),
+            // الاحتفاظ باسم الملف الأصلي في حقل منفصل
+            fileName: file.name
+        }));
+
+        res.status(200).json(formattedFiles);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -38,7 +59,17 @@ const addFile = async (req, res) => {
                 realestateId: parseInt(realestateId)
             }
         });
-        res.status(201).json(file);
+
+        // ✅ إرجاع الملف مع مسار كامل
+        const formattedFile = {
+            ...file,
+            // تحويل name إلى مسار كامل
+            name: buildRealEstateFileUrl(file.name),
+            // الاحتفاظ باسم الملف الأصلي في حقل منفصل
+            fileName: file.name
+        };
+
+        res.status(201).json(formattedFile);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
+const { buildIconUrl } = require('../config/upload');
 
 // Get all maintypes with subtypes
 const getAllMaintypes = async (req, res) => {
@@ -31,7 +32,8 @@ const getAllMaintypes = async (req, res) => {
         const maintypesWithSubtypes = maintypes.map(maintype => ({
             id: maintype.id,
             name: maintype.name,
-            icon: maintype.icon,
+            // ✅ تحويل icon إلى مسار كامل
+            icon: buildIconUrl(maintype.icon),
             createdAt: maintype.createdAt,
             updatedAt: maintype.updatedAt,
             subtypes: maintype.subTypes.map(subtype => ({
@@ -83,7 +85,8 @@ const getMaintypeById = async (req, res) => {
         const formattedMaintype = {
             id: maintype.id,
             name: maintype.name,
-            icon: maintype.icon,
+            // ✅ تحويل icon إلى مسار كامل
+            icon: buildIconUrl(maintype.icon),
             createdAt: maintype.createdAt,
             updatedAt: maintype.updatedAt,
             subtypes: maintype.subTypes.map(subtype => ({
@@ -174,7 +177,8 @@ const addMaintype = async (req, res) => {
         res.status(201).json({
             id: maintype.id,
             name: maintype.name,
-            icon: maintype.icon,
+            // ✅ إرجاع مسار كامل للأيقونة
+            icon: buildIconUrl(maintype.icon),
             createdAt: maintype.createdAt
         });
     } catch (error) {
@@ -284,7 +288,8 @@ const updateMaintype = async (req, res) => {
             maintype: {
                 id: updatedMaintype.id,
                 name: updatedMaintype.name,
-                icon: updatedMaintype.icon,
+                // ✅ إرجاع مسار كامل للأيقونة المحدثة
+                icon: buildIconUrl(updatedMaintype.icon),
                 updatedAt: updatedMaintype.updatedAt,
                 subtypeCount: updatedMaintype._count.subTypes,
                 realEstateCount: updatedMaintype._count.realEstates
@@ -431,7 +436,14 @@ const getMaintypesForSelect = async (req, res) => {
             orderBy: { name: 'asc' }
         });
 
-        res.status(200).json(maintypes);
+        // ✅ تحويل الأيقونات إلى مسارات كاملة
+        const formattedMaintypes = maintypes.map(maintype => ({
+            id: maintype.id,
+            name: maintype.name,
+            icon: buildIconUrl(maintype.icon)
+        }));
+
+        res.status(200).json(formattedMaintypes);
     } catch (error) {
         console.error('Error getting maintypes for select:', error);
         res.status(500).json({ error: error.message });

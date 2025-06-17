@@ -3,6 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// ✅ BASE_URL ثابت
+const BASE_URL = 'http://62.171.153.198:4002';
+
 // ✅ تعريف مسارات موحدة
 const UPLOAD_PATHS = {
     REALESTATE: path.join(__dirname, '../uploads/realestate/'),
@@ -21,6 +24,32 @@ const ALLOWED_TYPES = {
     IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'],
     VIDEOS: ['video/mp4', 'video/avi', 'video/mov'],
     DOCUMENTS: ['application/pdf', 'application/doc', 'application/docx']
+};
+
+// ✅ دوال بناء المسارات الكاملة
+const buildRealEstateFileUrl = (filename) => {
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/uploads/realestate/${filename}`;
+};
+
+const buildIconUrl = (filename) => {
+    if (!filename) return `${BASE_URL}/uploads/icons/icon.png`;
+    if (filename === 'icon.png') return `${BASE_URL}/uploads/icons/icon.png`;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/uploads/icons/${filename}`;
+};
+
+const buildPropertyFileUrl = (propertyKey, filename) => {
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/images/properties/${propertyKey}/${filename}`;
+};
+
+const buildGeneralFileUrl = (filename) => {
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/uploads/general/${filename}`;
 };
 
 // ✅ إنشاء storage مخصص
@@ -184,9 +213,8 @@ const formatFileSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// ✅ دالة إنشاء URL للملف
+// ✅ دالة إنشاء URL للملف (محدثة)
 const getFileUrl = (uploadType, filename) => {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:4100';
     const typeToPath = {
         'REALESTATE': '/uploads/realestate/',
         'ICONS': '/uploads/icons/',
@@ -194,7 +222,7 @@ const getFileUrl = (uploadType, filename) => {
         'GENERAL': '/uploads/general/'
     };
     
-    return `${baseUrl}${typeToPath[uploadType]}${filename}`;
+    return `${BASE_URL}${typeToPath[uploadType]}${filename}`;
 };
 
 // ✅ Middleware للتحقق من مساحة القرص
@@ -269,6 +297,13 @@ module.exports = {
     // Paths
     UPLOAD_PATHS,
     ALLOWED_TYPES,
+    BASE_URL,
+    
+    // ✅ دوال بناء المسارات الكاملة
+    buildRealEstateFileUrl,
+    buildIconUrl,
+    buildPropertyFileUrl,
+    buildGeneralFileUrl,
     
     // Middlewares
     uploadMiddlewares,

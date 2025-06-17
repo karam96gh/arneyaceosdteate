@@ -1,6 +1,6 @@
 // src/controllers/realestateController.js
 const { dbManager } = require('../config/database');
-const { uploadMiddlewares, deleteFile: deleteFileFromDisk, getFileUrl } = require('../config/upload');
+const { uploadMiddlewares, deleteFile: deleteFileFromDisk, buildRealEstateFileUrl } = require('../config/upload');
 const path = require('path');
 
 // ✅ استخدام الـ middleware الموحد
@@ -76,13 +76,15 @@ const getAllRealEstate = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
-                coverImage: realEstate.coverImage,
+                // ✅ تحويل coverImage إلى مسار كامل
+                coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,
                 // ✅ الحقول المنفصلة
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                files: realEstate.files.map(f => f.name),
+                // ✅ تحويل files إلى مسارات كاملة
+                files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
             };
@@ -173,12 +175,14 @@ const getRealEstateById = async (req, res) => {
             paymentMethod: realEstate.paymentMethod,
             mainCategoryId: realEstate.mainCategoryId,
             subCategoryId: realEstate.subCategoryId,
-            coverImage: realEstate.coverImage,
+            // ✅ تحويل coverImage إلى مسار كامل
+            coverImage: buildRealEstateFileUrl(realEstate.coverImage),
             finalTypeId: realEstate.finalTypeId,
             buildingId: realEstate.buildingId,
             buildingItemId: realEstate.buildingItemId,
             location: realEstate.location,
-            files: realEstate.files.map(f => f.name),
+            // ✅ تحويل files إلى مسارات كاملة
+            files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
             properties: propertyValuesObj,
             others: realEstate.others ? JSON.parse(realEstate.others) : null
         };
@@ -325,7 +329,8 @@ const addRealEstate = async (req, res) => {
         res.status(201).json({ 
             id: result.id, 
             message: 'Real estate added successfully',
-            coverImageUrl: getFileUrl('REALESTATE', coverImage),
+            // ✅ إرجاع مسار كامل لصورة الغلاف
+            coverImageUrl: buildRealEstateFileUrl(coverImage),
             filesCount: files.length
         });
     } catch (error) {
@@ -567,12 +572,14 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
-                coverImage: realEstate.coverImage,
+                // ✅ تحويل coverImage إلى مسار كامل
+                coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                files: realEstate.files.map(f => f.name),
+                // ✅ تحويل files إلى مسارات كاملة
+                files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
             };
@@ -659,7 +666,14 @@ const getRealEstateSimilar = async (req, res) => {
             const priceDiff = Math.abs(item.price - realEstate.price) / realEstate.price;
             if (priceDiff < 0.2) score += 5;
 
-            return { ...item, similarityScore: score };
+            return { 
+                ...item, 
+                // ✅ تحويل coverImage إلى مسار كامل
+                coverImage: buildRealEstateFileUrl(item.coverImage),
+                // ✅ تحويل files إلى مسارات كاملة  
+                files: item.files.map(f => buildRealEstateFileUrl(f.name)),
+                similarityScore: score 
+            };
         });
 
         // ترتيب حسب النقاط ثم التاريخ

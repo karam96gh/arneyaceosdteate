@@ -2,6 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const prisma = require('../config/prisma');
+const { buildPropertyFileUrl, BASE_URL } = require('../config/upload');
 
 // إعداد تخزين الملفات للخصائص
 const createPropertyFileStorage = (propertyKey) => {
@@ -133,7 +134,8 @@ const uploadPropertyFile = async (req, res) => {
                         fileName: req.file.filename,
                         originalName: req.file.originalname,
                         size: req.file.size,
-                        path: `/images/properties/${property.propertyKey}/${req.file.filename}`
+                        // ✅ إرجاع مسار كامل للملف
+                        path: buildPropertyFileUrl(property.propertyKey, req.file.filename)
                     }
                 });
             } catch (dbError) {
@@ -247,7 +249,8 @@ const getPropertyFileInfo = async (req, res) => {
                 property: propertyValue.property,
                 fileInfo: {
                     ...fileInfo,
-                    downloadUrl: `/images/properties/${propertyValue.property.propertyKey}/${fileInfo.fileName}`
+                    // ✅ إرجاع مسار كامل للتحميل
+                    downloadUrl: buildPropertyFileUrl(propertyValue.property.propertyKey, fileInfo.fileName)
                 }
             });
         } catch (parseError) {
@@ -305,7 +308,8 @@ const getRealEstatePropertyFiles = async (req, res) => {
                     groupName: pv.property.groupName,
                     fileInfo: {
                         ...fileInfo,
-                        downloadUrl: `/images/properties/${pv.property.propertyKey}/${fileInfo.fileName}`
+                        // ✅ إرجاع مسار كامل للتحميل
+                        downloadUrl: buildPropertyFileUrl(pv.property.propertyKey, fileInfo.fileName)
                     }
                 };
             } catch (parseError) {
