@@ -764,42 +764,6 @@ const filter = (req, res) => {
     return res.json(realestateFields);
 };
 
-// ✅ دالة اختبار للتحقق من الملفات (يمكن حذفها لاحقاً)
-const testFileSystem = async (req, res) => {
-    try {
-        const prisma = dbManager.getPrisma();
-        
-        // أخذ عينة من العقارات
-        const sample = await prisma.realEstate.findMany({
-            take: 5,
-            include: { files: true }
-        });
-
-        const testResults = sample.map(realEstate => {
-            return {
-                id: realEstate.id,
-                title: realEstate.title,
-                coverImage: {
-                    original: realEstate.coverImage,
-                    converted: buildRealEstateFileUrl(realEstate.coverImage)
-                },
-                files: realEstate.files.map(f => ({
-                    original: f.name,
-                    converted: buildRealEstateFileUrl(f.name)
-                }))
-            };
-        });
-
-        res.json({
-            message: 'File system test results',
-            sample: testResults,
-            note: 'Check if URLs are accessible'
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
 module.exports = {
     getAllRealEstate,
     getRealEstateById,
@@ -810,6 +774,5 @@ module.exports = {
     getRealEstateSimilar,
     deleteFile: deleteFileFromDB, // ✅ إصلاح التضارب
     filter,
-    upload,
-    testFileSystem // ✅ دالة اختبار مؤقتة
+    upload
 };
