@@ -97,31 +97,6 @@ app.use(cors({
 // ✅ تطبيق middleware فحص مساحة القرص قبل uploads
 app.use('/api/realestate', checkDiskSpace);
 app.use('/images', checkDiskSpace);
-
-// API Routes
-app.use('/api/cities', citiesRoutes);
-app.use('/api/files', filesRoutes);
-app.use('/api/maintypes', maintypeRoutes);
-app.use('/api/neighborhoods', neighborhoodsRoutes);
-app.use('/api/finalCity', finalCityRoutes);
-app.use('/api/realestate', realestateRoutes);
-app.use('/api/subtypes', subtypeRoutes);
-app.use('/api/finaltypes', finalTypeRoutes);
-app.use('/api/properties', propertyRoutes);
-app.use('/api/properties', filePropertyRoutes);
-app.use('/api', buildingRoutes);
-
-// File upload routes
-app.use('/images', require('./routes/uploadImage'));
-app.use('/api', require('./routes/upload_file'));
-
-// ✅ Static file serving مع الأمان - المسارات الجديدة
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-    maxAge: '1d', // cache للملفات
-    etag: true,
-    lastModified: true
-}));
-
 // ✅ مسارات فرعية محددة للوضوح
 app.use('/uploads/realestate', express.static(path.join(__dirname, 'uploads/realestate'), {
     maxAge: '1d',
@@ -184,6 +159,31 @@ app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/
     etag: true,
     lastModified: true
 }));
+// API Routes
+app.use('/api/cities', citiesRoutes);
+app.use('/api/files', filesRoutes);
+app.use('/api/maintypes', maintypeRoutes);
+app.use('/api/neighborhoods', neighborhoodsRoutes);
+app.use('/api/finalCity', finalCityRoutes);
+app.use('/api/realestate', realestateRoutes);
+app.use('/api/subtypes', subtypeRoutes);
+app.use('/api/finaltypes', finalTypeRoutes);
+app.use('/api/properties', propertyRoutes);
+app.use('/api/properties', filePropertyRoutes);
+app.use('/api', buildingRoutes);
+
+// File upload routes
+app.use('/images', require('./routes/uploadImage'));
+app.use('/api', require('./routes/upload_file'));
+
+// ✅ Static file serving مع الأمان - المسارات الجديدة
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '1d', // cache للملفات
+    etag: true,
+    lastModified: true
+}));
+
+
 
 // ✅ Health check endpoint محسن
 app.get('/health', async (req, res) => {
