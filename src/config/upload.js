@@ -37,7 +37,7 @@ const buildIconUrl = (filename) => {
     if (!filename) return `${BASE_URL}/uploads/icons/icon.png`;
     if (filename === 'icon.png') return `${BASE_URL}/uploads/icons/icon.png`;
     if (filename.startsWith('http')) return filename;
-    return `${BASE_URL}/uploads/icons/${filename}`;
+    return `${BASE_URL}/src/controllers/src/images/${filename}`;
 };
 
 const buildPropertyFileUrl = (propertyKey, filename) => {
