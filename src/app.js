@@ -97,11 +97,19 @@ app.use(cors({
 // ✅ تطبيق middleware فحص مساحة القرص قبل uploads
 app.use('/api/realestate', checkDiskSpace);
 app.use('/images', checkDiskSpace);
-// ✅ مسارات فرعية محددة للوضوح
+
+// 🔧 ترتيب المسارات الثابتة بشكل صحيح (من الأكثر تحديداً للأقل)
+
+console.log('🔧 Setting up static file routes with correct order...');
+
+// 1. ✅ المسارات الجديدة (أولوية عالية)
 app.use('/uploads/realestate', express.static(path.join(__dirname, 'uploads/realestate'), {
     maxAge: '1d',
     etag: true,
-    lastModified: true
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        console.log(`✅ Serving: /uploads/realestate/${path.basename(filePath)}`);
+    }
 }));
 
 app.use('/uploads/icons', express.static(path.join(__dirname, 'uploads/icons'), {
@@ -122,11 +130,14 @@ app.use('/uploads/general', express.static(path.join(__dirname, 'uploads/general
     lastModified: true
 }));
 
-// ✅ Legacy static paths (للتوافق مع النظام القديم والملفات الموجودة)
-app.use('/images', express.static(path.join(__dirname, 'src/images'), {
+// 2. ✅ المسارات المتداخلة (أولوية عالية - أكثر تحديداً)
+app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
     maxAge: '1d',
     etag: true,
-    lastModified: true
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        console.log(`✅ Serving legacy: /src/controllers/src/images/${path.basename(filePath)}`);
+    }
 }));
 
 app.use('/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
@@ -135,6 +146,7 @@ app.use('/controllers/src/images', express.static(path.join(__dirname, 'src/cont
     lastModified: true
 }));
 
+// 3. ✅ المسارات المتوسطة
 app.use('/images/products', express.static(path.join(__dirname, 'src/images/products'), {
     maxAge: '1d',
     etag: true,
@@ -147,19 +159,94 @@ app.use('/images/properties', express.static(path.join(__dirname, 'src/controlle
     lastModified: true
 }));
 
-// ✅ إضافة مسارات static إضافية للملفات القديمة
 app.use('/src/images', express.static(path.join(__dirname, 'src/images'), {
     maxAge: '1d',
     etag: true,
     lastModified: true
 }));
 
-app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
+// 4. ✅ المسارات العامة (أولوية منخفضة - أقل تحديداً)
+app.use('/images', express.static(path.join(__dirname, 'src/images'), {
     maxAge: '1d',
     etag: true,
     lastModified: true
 }));
-// API Routes
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
+
+console.log('✅ Static routes configured successfully');
+
+// ✅ API Routes التشخيصية (قبل API الرئيسية)
+app.get('/api/files/check/:filename', (req, res) => {
+    const { filename } = req.params;
+    const BASE_URL = 'http://62.171.153.198:4002';
+    
+    const searchPaths = [
+        {
+            path: path.join(__dirname, 'uploads/realestate', filename),
+            url: `${BASE_URL}/uploads/realestate/${filename}`,
+            type: 'new'
+        },
+        {
+            path: path.join(__dirname, 'src/controllers/src/images', filename),
+            url: `${BASE_URL}/src/controllers/src/images/${filename}`,
+            type: 'legacy-nested'
+        },
+        {
+            path: path.join(__dirname, 'src/images', filename),
+            url: `${BASE_URL}/images/${filename}`,
+            type: 'legacy-simple'
+        }
+    ];
+    
+    const results = searchPaths.map(sp => ({
+        ...sp,
+        exists: fs.existsSync(sp.path)
+    }));
+    
+    const foundFile = results.find(r => r.exists);
+    
+    res.json({
+        filename,
+        found: !!foundFile,
+        correctUrl: foundFile?.url,
+        fileType: foundFile?.type,
+        allResults: results,
+        testUrls: results.map(r => r.url)
+    });
+});
+
+app.get('/api/files/check/:type/:filename', (req, res) => {
+    const { type, filename } = req.params;
+    
+    const checkPaths = [
+        path.join(__dirname, `uploads/${type}`, filename),
+        path.join(__dirname, 'src/images', filename),
+        path.join(__dirname, 'src/controllers/src/images', filename)
+    ];
+    
+    const results = checkPaths.map(filePath => ({
+        path: filePath,
+        exists: fs.existsSync(filePath),
+        url: filePath.replace(__dirname, `http://62.171.153.198:4002`)
+            .replace(/\\/g, '/')
+            .replace('/src/', '/')
+            .replace('/controllers/', '/')
+    }));
+    
+    res.json({
+        filename,
+        type,
+        results,
+        found: results.some(r => r.exists)
+    });
+});
+
+// ✅ API Routes الرئيسية
 app.use('/api/cities', citiesRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/maintypes', maintypeRoutes);
@@ -176,22 +263,12 @@ app.use('/api', buildingRoutes);
 app.use('/images', require('./routes/uploadImage'));
 app.use('/api', require('./routes/upload_file'));
 
-// ✅ Static file serving مع الأمان - المسارات الجديدة
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-    maxAge: '1d', // cache للملفات
-    etag: true,
-    lastModified: true
-}));
-
-
-
-// ✅ Health check endpoint محسن
+// ✅ Health check endpoint
 app.get('/health', async (req, res) => {
     try {
         const dbHealth = await dbManager.healthCheck();
         const uploadStats = {};
         
-        // فحص مساحة الرفع
         Object.entries(UPLOAD_PATHS).forEach(([type, path]) => {
             try {
                 uploadStats[type.toLowerCase()] = {
@@ -243,35 +320,15 @@ app.get('/api', (req, res) => {
             buildings: '/api/buildings',
             files: '/api/files'
         },
-        documentation: '/api/docs', // يمكن إضافة Swagger لاحقاً
-        health: '/health'
-    });
-});
-
-// ✅ Diagnostic endpoint لفحص الملفات
-app.get('/api/files/check/:type/:filename', (req, res) => {
-    const { type, filename } = req.params;
-    
-    const checkPaths = [
-        path.join(__dirname, `uploads/${type}`, filename),
-        path.join(__dirname, 'src/images', filename),
-        path.join(__dirname, 'src/controllers/src/images', filename)
-    ];
-    
-    const results = checkPaths.map(filePath => ({
-        path: filePath,
-        exists: fs.existsSync(filePath),
-        url: filePath.replace(__dirname, `http://62.171.153.198:4002`)
-            .replace(/\\/g, '/')
-            .replace('/src/', '/')
-            .replace('/controllers/', '/')
-    }));
-    
-    res.json({
-        filename,
-        type,
-        results,
-        found: results.some(r => r.exists)
+        fileRoutes: {
+            newFiles: '/uploads/realestate/',
+            legacyFiles: '/src/controllers/src/images/',
+            generalFiles: '/images/'
+        },
+        diagnostics: {
+            checkFile: '/api/files/check/{filename}',
+            health: '/health'
+        }
     });
 });
 
@@ -296,7 +353,6 @@ app.use((err, req, res, next) => {
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
     
-    // JSON parsing errors
     if (err.type === 'entity.parse.failed') {
         return res.status(400).json({ 
             error: 'Invalid JSON format',
@@ -304,7 +360,6 @@ app.use((err, req, res, next) => {
         });
     }
     
-    // File size errors
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ 
             error: 'File size too large',
@@ -312,7 +367,6 @@ app.use((err, req, res, next) => {
         });
     }
     
-    // Database connection errors
     if (err.code === 'P1001' || err.code === 'P1003') {
         return res.status(503).json({
             error: 'Database connection error',
@@ -320,60 +374,50 @@ app.use((err, req, res, next) => {
         });
     }
     
-    // Default error response
     res.status(err.statusCode || 500).json({ 
         error: 'Internal server error',
         message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
 });
-// ✅ Middleware لإعادة توجيه المسارات الخاطئة
-app.use('/src/controllers/src/images/:filename', (req, res, next) => {
-    const { filename } = req.params;
-    const fs = require('fs');
+
+// ✅ 404 handler (يجب أن يكون الأخير)
+app.use('*', (req, res) => {
+    // إذا كان المسار يحتوي على ملف صورة، قدم اقتراحات
+    const isImageRequest = /\.(jpg|jpeg|png|gif|webp|mp4)$/i.test(req.originalUrl);
     
-    // البحث عن الملف في المواقع المختلفة
-    const searchPaths = [
-        { path: path.join(__dirname, 'src/controllers/src/images', filename), url: `/src/controllers/src/images/${filename}` },
-        { path: path.join(__dirname, 'src/images', filename), url: `/images/${filename}` },
-        { path: path.join(__dirname, 'uploads/realestate', filename), url: `/uploads/realestate/${filename}` }
-    ];
-    
-    for (const searchPath of searchPaths) {
-        if (fs.existsSync(searchPath.path)) {
-            console.log(`Found file at: ${searchPath.path}`);
-            // إعادة توجيه إلى المسار الصحيح
-            return res.redirect(searchPath.url);
-        }
+    if (isImageRequest) {
+        const filename = path.basename(req.originalUrl);
+        return res.status(404).json({
+            error: 'Image file not found',
+            message: `Cannot ${req.method} ${req.originalUrl}`,
+            filename,
+            suggestions: [
+                `http://62.171.153.198:4002/uploads/realestate/${filename}`,
+                `http://62.171.153.198:4002/src/controllers/src/images/${filename}`,
+                `http://62.171.153.198:4002/images/${filename}`
+            ],
+            checkUrl: `http://62.171.153.198:4002/api/files/check/${filename}`
+        });
     }
     
-    // إذا لم يوجد الملف، إرجاع 404 مع معلومات مفيدة
-    res.status(404).json({
-        error: 'File not found',
-        filename,
-        searchedPaths: searchPaths.map(p => p.path),
-        suggestion: `Use /api/files/check/${filename} to locate the file`
-    });
-});
-
-// ✅ 404 handler
-app.use('*', (req, res) => {
     res.status(404).json({ 
         error: 'Route not found',
         message: `Cannot ${req.method} ${req.originalUrl}`,
         availableRoutes: {
             api: '/api',
             health: '/health',
-            uploads: '/uploads'
+            uploads: '/uploads',
+            images: '/images',
+            legacyImages: '/src/controllers/src/images'
         }
     });
 });
 
-// ✅ Graceful shutdown محسن
+// ✅ Graceful shutdown
 const gracefulShutdown = async (signal) => {
     console.log(`\n${signal} received, shutting down gracefully...`);
     
-    // إغلاق اتصال قاعدة البيانات
     try {
         await dbManager.disconnect();
         console.log('✅ Database connection closed');
@@ -387,12 +431,10 @@ const gracefulShutdown = async (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // for nodemon
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 
-// ✅ Unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // لا نغلق العملية، فقط نسجل الخطأ
 });
 
 process.on('uncaughtException', (error) => {
@@ -400,13 +442,11 @@ process.on('uncaughtException', (error) => {
     process.exit(1);
 });
 
-// ✅ بدء الخادم مع إعداد قاعدة البيانات
+// ✅ بدء الخادم
 const startServer = async () => {
     try {
-        // تهيئة قاعدة البيانات أولاً
         await dbManager.initialize();
         
-        // بدء الخادم
         const server = app.listen(PORT, () => {
             console.log('🚀 ================================================');
             console.log(`🏠 Real Estate API Server Started Successfully!`);
@@ -414,14 +454,13 @@ const startServer = async () => {
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`📊 Health check: http://localhost:${PORT}/health`);
             console.log(`🏠 API info: http://localhost:${PORT}/api`);
-            console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
-            console.log(`📁 Legacy Images: http://localhost:${PORT}/images`);
+            console.log(`📁 New uploads: http://localhost:${PORT}/uploads/realestate/`);
+            console.log(`📁 Legacy files: http://localhost:${PORT}/src/controllers/src/images/`);
+            console.log(`🔍 File checker: http://localhost:${PORT}/api/files/check/{filename}`);
             console.log('🚀 ================================================');
         });
 
-        // تعيين timeout للطلبات
-        server.timeout = 30000; // 30 seconds
-
+        server.timeout = 30000;
         return server;
     } catch (error) {
         console.error('❌ Failed to start server:', error);
@@ -429,7 +468,6 @@ const startServer = async () => {
     }
 };
 
-// بدء الخادم
 if (require.main === module) {
     startServer();
 }
