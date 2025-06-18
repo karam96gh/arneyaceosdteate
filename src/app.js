@@ -98,17 +98,108 @@ app.use(cors({
 app.use('/api/realestate', checkDiskSpace);
 app.use('/images', checkDiskSpace);
 
-// 🔧 ترتيب المسارات الثابتة بشكل صحيح (من الأكثر تحديداً للأقل)
+// 🔧 ===============================================================
+// ✅ STATIC FILES ROUTES - يجب أن تكون قبل API Routes
+// 🔧 ===============================================================
 
-console.log('🔧 Setting up static file routes with correct order...');
+console.log('🔧 Setting up static file routes...');
 
-// 1. ✅ المسارات الجديدة (أولوية عالية)
+// ✅ مسار مخصص للملف المحدد أولاً (أولوية عالية جداً)
+app.get('/src/controllers/src/images/:filename', (req, res) => {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, 'src/controllers/src/images', filename);
+    
+    console.log(`🔍 Direct route: Looking for ${filename} at ${filePath}`);
+    
+    // التحقق من وجود الملف
+    if (fs.existsSync(filePath)) {
+        console.log(`✅ File found via direct route: ${filename}`);
+        res.sendFile(filePath);
+    } else {
+        console.log(`❌ File not found via direct route: ${filename}`);
+        // البحث في مواقع أخرى
+        const alternatives = [
+            { path: path.join(__dirname, 'uploads/realestate', filename), url: `/uploads/realestate/${filename}` },
+            { path: path.join(__dirname, 'src/images', filename), url: `/images/${filename}` }
+        ];
+        
+        for (const alt of alternatives) {
+            if (fs.existsSync(alt.path)) {
+                console.log(`✅ Found alternative for ${filename}: ${alt.path}`);
+                return res.redirect(301, alt.url);
+            }
+        }
+        
+        res.status(404).json({
+            error: 'File not found',
+            filename,
+            searchedPaths: [filePath, ...alternatives.map(a => a.path)],
+            message: `File ${filename} not found in any location`
+        });
+    }
+});
+
+// ✅ مسار عام للتحقق من الملفات
+app.get('/check-file/:filename', (req, res) => {
+    const { filename } = req.params;
+    const BASE_URL = 'http://62.171.153.198:4002';
+    
+    const locations = [
+        {
+            path: path.join(__dirname, 'uploads/realestate', filename),
+            url: `${BASE_URL}/uploads/realestate/${filename}`,
+            name: 'New Location'
+        },
+        {
+            path: path.join(__dirname, 'src/controllers/src/images', filename),
+            url: `${BASE_URL}/src/controllers/src/images/${filename}`,
+            name: 'Legacy Nested'
+        },
+        {
+            path: path.join(__dirname, 'src/images', filename),
+            url: `${BASE_URL}/images/${filename}`,
+            name: 'Legacy Simple'
+        }
+    ];
+    
+    const results = locations.map(loc => ({
+        ...loc,
+        exists: fs.existsSync(loc.path),
+        size: fs.existsSync(loc.path) ? fs.statSync(loc.path).size : 0
+    }));
+    
+    const found = results.find(r => r.exists);
+    
+    res.json({
+        filename,
+        found: !!found,
+        workingUrl: found?.url,
+        location: found?.name,
+        allResults: results,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ✅ مسارات الملفات الثابتة بالترتيب الصحيح
+// الأكثر تحديداً أولاً
+
+// 1. المسارات المتداخلة العميقة (أولوية عالية)
+app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        console.log(`📁 Serving legacy nested: ${path.basename(filePath)}`);
+    }
+}));
+
+// 2. المسارات الجديدة
 app.use('/uploads/realestate', express.static(path.join(__dirname, 'uploads/realestate'), {
     maxAge: '1d',
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
-        console.log(`✅ Serving: /uploads/realestate/${path.basename(filePath)}`);
+        console.log(`📁 Serving new: ${path.basename(filePath)}`);
     }
 }));
 
@@ -130,23 +221,13 @@ app.use('/uploads/general', express.static(path.join(__dirname, 'uploads/general
     lastModified: true
 }));
 
-// 2. ✅ المسارات المتداخلة (أولوية عالية - أكثر تحديداً)
-app.use('/src/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
-    maxAge: '1d',
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-        console.log(`✅ Serving legacy: /src/controllers/src/images/${path.basename(filePath)}`);
-    }
-}));
-
+// 3. مسارات متوسطة التحديد
 app.use('/controllers/src/images', express.static(path.join(__dirname, 'src/controllers/src/images'), {
     maxAge: '1d',
     etag: true,
     lastModified: true
 }));
 
-// 3. ✅ المسارات المتوسطة
 app.use('/images/products', express.static(path.join(__dirname, 'src/images/products'), {
     maxAge: '1d',
     etag: true,
@@ -165,7 +246,7 @@ app.use('/src/images', express.static(path.join(__dirname, 'src/images'), {
     lastModified: true
 }));
 
-// 4. ✅ المسارات العامة (أولوية منخفضة - أقل تحديداً)
+// 4. المسارات العامة (الأقل تحديداً)
 app.use('/images', express.static(path.join(__dirname, 'src/images'), {
     maxAge: '1d',
     etag: true,
@@ -180,7 +261,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 
 console.log('✅ Static routes configured successfully');
 
-// ✅ API Routes التشخيصية (قبل API الرئيسية)
+// 🔧 ===============================================================
+// ✅ API ROUTES - بعد Static Files
+// 🔧 ===============================================================
+
+// ✅ API Routes التشخيصية أولاً
 app.get('/api/files/check/:filename', (req, res) => {
     const { filename } = req.params;
     const BASE_URL = 'http://62.171.153.198:4002';
@@ -327,15 +412,26 @@ app.get('/api', (req, res) => {
         },
         diagnostics: {
             checkFile: '/api/files/check/{filename}',
+            checkFileSimple: '/check-file/{filename}',
             health: '/health'
-        }
+        },
+        staticRoutes: [
+            '/uploads/realestate/',
+            '/src/controllers/src/images/',
+            '/images/',
+            '/uploads/icons/',
+            '/uploads/properties/',
+            '/uploads/general/'
+        ]
     });
 });
 
-// ✅ Request logging middleware
+// ✅ Request logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {
     app.use((req, res, next) => {
-        console.log(`${new Date().toISOString()} - ${req.method} ${req.path}${req.query ? ` - Query: ${JSON.stringify(req.query)}` : ''}`);
+        if (!req.path.startsWith('/api/') && !req.path.startsWith('/health')) {
+            console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+        }
         next();
     });
 }
@@ -397,7 +493,8 @@ app.use('*', (req, res) => {
                 `http://62.171.153.198:4002/src/controllers/src/images/${filename}`,
                 `http://62.171.153.198:4002/images/${filename}`
             ],
-            checkUrl: `http://62.171.153.198:4002/api/files/check/${filename}`
+            checkUrl: `http://62.171.153.198:4002/check-file/${filename}`,
+            apiCheckUrl: `http://62.171.153.198:4002/api/files/check/${filename}`
         });
     }
     
@@ -452,11 +549,23 @@ const startServer = async () => {
             console.log(`🏠 Real Estate API Server Started Successfully!`);
             console.log(`📡 Port: ${PORT}`);
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`📊 Health check: http://localhost:${PORT}/health`);
-            console.log(`🏠 API info: http://localhost:${PORT}/api`);
-            console.log(`📁 New uploads: http://localhost:${PORT}/uploads/realestate/`);
-            console.log(`📁 Legacy files: http://localhost:${PORT}/src/controllers/src/images/`);
-            console.log(`🔍 File checker: http://localhost:${PORT}/api/files/check/{filename}`);
+            console.log('');
+            console.log('📊 Available Endpoints:');
+            console.log(`   Health: http://localhost:${PORT}/health`);
+            console.log(`   API Info: http://localhost:${PORT}/api`);
+            console.log('');
+            console.log('📁 File Routes:');
+            console.log(`   New files: http://localhost:${PORT}/uploads/realestate/`);
+            console.log(`   Legacy files: http://localhost:${PORT}/src/controllers/src/images/`);
+            console.log(`   General files: http://localhost:${PORT}/images/`);
+            console.log('');
+            console.log('🔍 File Diagnostics:');
+            console.log(`   Simple check: http://localhost:${PORT}/check-file/{filename}`);
+            console.log(`   API check: http://localhost:${PORT}/api/files/check/{filename}`);
+            console.log('');
+            console.log('🧪 Test URLs:');
+            console.log(`   Working: http://localhost:${PORT}/uploads/realestate/1750203930959-realestate.png`);
+            console.log(`   Problem: http://localhost:${PORT}/src/controllers/src/images/1750239027927.jpg`);
             console.log('🚀 ================================================');
         });
 
