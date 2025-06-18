@@ -6,7 +6,7 @@ const fs = require('fs');
 // ✅ BASE_URL ثابت
 const BASE_URL = 'http://62.171.153.198:4002';
 
-// ✅ تعريف مسارات موحدة أولاً
+// ✅ تعريف مسارات موحدة
 const UPLOAD_PATHS = {
     REALESTATE: path.join(__dirname, '../uploads/realestate/'),
     ICONS: path.join(__dirname, '../uploads/icons/'),
@@ -14,25 +14,10 @@ const UPLOAD_PATHS = {
     GENERAL: path.join(__dirname, '../uploads/general/')
 };
 
-// ✅ المسارات القديمة للبحث عن الملفات
-const OLD_PATHS = {
-    REALESTATE: [
-        'src/images/',
-        'src/controllers/src/images/',
-        'src/images/products/',
-        'uploads/'
-    ],
-    ICONS: [
-        'src/images/',
-        'src/controllers/src/images/',
-        'uploads/icons/'
-    ],
-    PROPERTIES: [
-        'src/controllers/src/images/properties/',
-        'src/images/properties/',
-        'uploads/properties/'
-    ]
-};
+// ✅ إنشاء المجلدات تلقائياً
+Object.values(UPLOAD_PATHS).forEach(uploadPath => {
+    fs.mkdirSync(uploadPath, { recursive: true });
+});
 
 // ✅ أنواع الملفات المسموحة
 const ALLOWED_TYPES = {
@@ -41,108 +26,30 @@ const ALLOWED_TYPES = {
     DOCUMENTS: ['application/pdf', 'application/doc', 'application/docx']
 };
 
-// ✅ إنشاء المجلدات تلقائياً
-Object.values(UPLOAD_PATHS).forEach(uploadPath => {
-    try {
-        fs.mkdirSync(uploadPath, { recursive: true });
-    } catch (error) {
-        console.warn(`Could not create directory ${uploadPath}:`, error.message);
-    }
-});
-
-// ✅ دالة البحث الذكي عن الملفات
-const findActualFilePath = (filename, type) => {
-    if (!filename) return null;
-
-    // إذا كان المسار كامل، أرجعه كما هو
-    if (filename.startsWith('http')) return filename;
-
-    const typeKey = type.toUpperCase();
-    
-    // المسار الجديد (أولوية عالية)
-    const newPath = path.join(__dirname, `../uploads/${type.toLowerCase()}/`, filename);
-    if (fs.existsSync(newPath)) {
-        return `${BASE_URL}/uploads/${type.toLowerCase()}/${filename}`;
-    }
-
-    // البحث في المسارات القديمة
-    if (OLD_PATHS[typeKey]) {
-        for (const oldPath of OLD_PATHS[typeKey]) {
-            const fullPath = path.join(__dirname, '..', oldPath, filename);
-            if (fs.existsSync(fullPath)) {
-                // تحويل المسار المحلي إلى URL مع المطابقة الصحيحة
-                let webPath;
-                if (oldPath === 'src/controllers/src/images/') {
-                    webPath = 'src/controllers/src/images/';
-                } else if (oldPath === 'src/images/') {
-                    webPath = 'images/';
-                } else if (oldPath === 'src/images/products/') {
-                    webPath = 'images/products/';
-                } else {
-                    webPath = oldPath.replace(/^src\//, '').replace(/^controllers\//, '');
-                }
-                return `${BASE_URL}/${webPath}${filename}`;
-            }
-        }
-    }
-
-    // إذا لم يوجد الملف، أرجع المسار الافتراضي الجديد
-    console.warn(`File not found: ${filename} for type: ${type}`);
-    return `${BASE_URL}/uploads/${type.toLowerCase()}/${filename}`;
-};
-
-// ✅ دالة خاصة للبحث عن ملفات الخصائص
-const findPropertyFilePath = (propertyKey, filename) => {
-    if (!filename) return null;
-    if (filename.startsWith('http')) return filename;
-
-    // المسار الجديد
-    const newPath = path.join(__dirname, `../uploads/properties/${propertyKey}/`, filename);
-    if (fs.existsSync(newPath)) {
-        return `${BASE_URL}/uploads/properties/${propertyKey}/${filename}`;
-    }
-
-    // المسارات القديمة للخصائص
-    const oldPaths = [
-        `src/controllers/src/images/properties/${propertyKey}/`,
-        `src/images/properties/${propertyKey}/`,
-        `uploads/properties/${propertyKey}/`
-    ];
-
-    for (const oldPath of oldPaths) {
-        const fullPath = path.join(__dirname, '..', oldPath, filename);
-        if (fs.existsSync(fullPath)) {
-            const webPath = oldPath.replace(/^src\//, '').replace(/^controllers\//, '');
-            return `${BASE_URL}/${webPath}${filename}`;
-        }
-    }
-
-    // افتراضي
-    console.warn(`Property file not found: ${filename} for property: ${propertyKey}`);
-    return `${BASE_URL}/images/properties/${propertyKey}/${filename}`;
-};
-
-// ✅ دوال بناء المسارات الكاملة (محدثة للبحث الذكي)
+// ✅ دوال بناء المسارات الكاملة
 const buildRealEstateFileUrl = (filename) => {
-    return findActualFilePath(filename, 'realestate');
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/uploads/realestate/${filename}`;
 };
 
 const buildIconUrl = (filename) => {
     if (!filename) return `${BASE_URL}/uploads/icons/icon.png`;
-    if (filename === 'icon.png') {
-        // البحث عن icon.png في المسارات القديمة
-        const iconPath = findActualFilePath('icon.png', 'icons');
-        return iconPath || `${BASE_URL}/uploads/icons/icon.png`;
-    }
-    return findActualFilePath(filename, 'icons');
+    if (filename === 'icon.png') return `${BASE_URL}/uploads/icons/icon.png`;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/src/controllers/src/images/${filename}`;
 };
 
 const buildPropertyFileUrl = (propertyKey, filename) => {
-    return findPropertyFilePath(propertyKey, filename);
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/images/properties/${propertyKey}/${filename}`;
 };
 
 const buildGeneralFileUrl = (filename) => {
-    return findActualFilePath(filename, 'general');
+    if (!filename) return null;
+    if (filename.startsWith('http')) return filename;
+    return `${BASE_URL}/uploads/general/${filename}`;
 };
 
 // ✅ إنشاء storage مخصص
@@ -377,27 +284,6 @@ const uploadErrorHandler = (error, req, res, next) => {
     });
 };
 
-// ✅ دالة اختبار لفحص الملفات (للتطوير فقط)
-const testFileExists = (filename, type) => {
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`🧪 Testing file: ${filename} (${type})`);
-        
-        const typeKey = type.toUpperCase();
-        
-        // فحص المسار الجديد
-        const newPath = path.join(__dirname, `../uploads/${type.toLowerCase()}/`, filename);
-        console.log(`  🆕 New: ${fs.existsSync(newPath) ? '✅' : '❌'} ${newPath}`);
-
-        // فحص المسارات القديمة
-        if (OLD_PATHS[typeKey]) {
-            OLD_PATHS[typeKey].forEach(oldPath => {
-                const fullPath = path.join(__dirname, '..', oldPath, filename);
-                console.log(`  🔍 Old: ${fs.existsSync(fullPath) ? '✅' : '❌'} ${fullPath}`);
-            });
-        }
-    }
-};
-
 // ✅ جدولة تنظيف الملفات القديمة (كل 24 ساعة)
 if (process.env.NODE_ENV === 'production') {
     setInterval(() => {
@@ -412,17 +298,12 @@ module.exports = {
     UPLOAD_PATHS,
     ALLOWED_TYPES,
     BASE_URL,
-    OLD_PATHS,
     
-    // ✅ دوال بناء المسارات الكاملة (محدثة)
+    // ✅ دوال بناء المسارات الكاملة
     buildRealEstateFileUrl,
     buildIconUrl,
     buildPropertyFileUrl,
     buildGeneralFileUrl,
-    
-    // ✅ دوال البحث الذكي
-    findActualFilePath,
-    findPropertyFilePath,
     
     // Middlewares
     uploadMiddlewares,
@@ -440,7 +321,6 @@ module.exports = {
     getFolderSize,
     formatFileSize,
     getFileUrl,
-    testFileExists,
     
     // Legacy support (للتوافق مع الكود القديم)
     upload: uploadMiddlewares.realEstate
