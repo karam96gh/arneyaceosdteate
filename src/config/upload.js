@@ -1,62 +1,4 @@
-// ✅ دالة اختبار لفحص الملفات (للتطوير فقط)
-const testFileExists = (filename, type) => {
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`🧪 Testing file: ${filename} (${type})`);
-        
-        const typeKey = type.toUpperCase();
-        
-        // فحص المسار الجديد
-        const newPath = path.join(__dirname, `../uploads/${type.toLowerCase()}/`, filename);
-        console.log(`  🆕 New: ${fs.existsSync(newPath) ? '✅' : '❌'} ${newPath}`);
-
-        // فحص المسارات القديمة
-        if (OLD_PATHS[typeKey]) {
-            OLD_PATHS[typeKey].forEach(oldPath => {
-                const fullPath = path.join(__dirname, '..', oldPath, filename);
-                console.log(`  🔍 Old: ${fs.existsSync(fullPath) ? '✅' : '❌'} ${fullPath}`);
-            });
-        }
-    }
-};
-
-module.exports = {
-    // Paths
-    UPLOAD_PATHS,
-    ALLOWED_TYPES,
-    BASE_URL,
-    OLD_PATHS,
-    
-    // ✅ دوال بناء المسارات الكاملة (محدثة)
-    buildRealEstateFileUrl,
-    buildIconUrl,
-    buildPropertyFileUrl,
-    buildGeneralFileUrl,
-    
-    // ✅ دوال البحث الذكي
-    findActualFilePath,
-    findPropertyFilePath,
-    
-    // Middlewares
-    uploadMiddlewares,
-    checkDiskSpace,
-    uploadErrorHandler,
-    
-    // Storage creators
-    createStorage,
-    createFileFilter,
-    createUploadMiddleware,
-    
-    // Utilities
-    deleteFile,
-    cleanupOldFiles,
-    getFolderSize,
-    formatFileSize,
-    getFileUrl,
-    testFileExists,
-    
-    // Legacy support (للتوافق مع الكود القديم)
-    upload: uploadMiddlewares.realEstate
-};// src/config/upload.js
+// src/config/upload.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -92,17 +34,21 @@ const OLD_PATHS = {
     ]
 };
 
-// ✅ إنشاء المجلدات تلقائياً
-Object.values(UPLOAD_PATHS).forEach(uploadPath => {
-    fs.mkdirSync(uploadPath, { recursive: true });
-});
-
 // ✅ أنواع الملفات المسموحة
 const ALLOWED_TYPES = {
     IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'],
     VIDEOS: ['video/mp4', 'video/avi', 'video/mov'],
     DOCUMENTS: ['application/pdf', 'application/doc', 'application/docx']
 };
+
+// ✅ إنشاء المجلدات تلقائياً
+Object.values(UPLOAD_PATHS).forEach(uploadPath => {
+    try {
+        fs.mkdirSync(uploadPath, { recursive: true });
+    } catch (error) {
+        console.warn(`Could not create directory ${uploadPath}:`, error.message);
+    }
+});
 
 // ✅ دالة البحث الذكي عن الملفات
 const findActualFilePath = (filename, type) => {
@@ -431,6 +377,27 @@ const uploadErrorHandler = (error, req, res, next) => {
     });
 };
 
+// ✅ دالة اختبار لفحص الملفات (للتطوير فقط)
+const testFileExists = (filename, type) => {
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`🧪 Testing file: ${filename} (${type})`);
+        
+        const typeKey = type.toUpperCase();
+        
+        // فحص المسار الجديد
+        const newPath = path.join(__dirname, `../uploads/${type.toLowerCase()}/`, filename);
+        console.log(`  🆕 New: ${fs.existsSync(newPath) ? '✅' : '❌'} ${newPath}`);
+
+        // فحص المسارات القديمة
+        if (OLD_PATHS[typeKey]) {
+            OLD_PATHS[typeKey].forEach(oldPath => {
+                const fullPath = path.join(__dirname, '..', oldPath, filename);
+                console.log(`  🔍 Old: ${fs.existsSync(fullPath) ? '✅' : '❌'} ${fullPath}`);
+            });
+        }
+    }
+};
+
 // ✅ جدولة تنظيف الملفات القديمة (كل 24 ساعة)
 if (process.env.NODE_ENV === 'production') {
     setInterval(() => {
@@ -445,12 +412,17 @@ module.exports = {
     UPLOAD_PATHS,
     ALLOWED_TYPES,
     BASE_URL,
+    OLD_PATHS,
     
-    // ✅ دوال بناء المسارات الكاملة
+    // ✅ دوال بناء المسارات الكاملة (محدثة)
     buildRealEstateFileUrl,
     buildIconUrl,
     buildPropertyFileUrl,
     buildGeneralFileUrl,
+    
+    // ✅ دوال البحث الذكي
+    findActualFilePath,
+    findPropertyFilePath,
     
     // Middlewares
     uploadMiddlewares,
@@ -468,6 +440,7 @@ module.exports = {
     getFolderSize,
     formatFileSize,
     getFileUrl,
+    testFileExists,
     
     // Legacy support (للتوافق مع الكود القديم)
     upload: uploadMiddlewares.realEstate
