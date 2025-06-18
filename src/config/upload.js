@@ -33,93 +33,11 @@ const buildRealEstateFileUrl = (filename) => {
     return `${BASE_URL}/uploads/realestate/${filename}`;
 };
 
-// في src/config/upload.js - استبدال دالة buildIconUrl
-
 const buildIconUrl = (filename) => {
     if (!filename) return `${BASE_URL}/uploads/icons/icon.png`;
     if (filename === 'icon.png') return `${BASE_URL}/uploads/icons/icon.png`;
     if (filename.startsWith('http')) return filename;
-    
-    // ✅ إصلاح: فحص وجود الملف في مواقع مختلفة
-    const fs = require('fs');
-    const path = require('path');
-    
-    // المسارات المحتملة للبحث عن الملف
-    const possiblePaths = [
-        { 
-            filePath: path.join(__dirname, '../uploads/icons/', filename), 
-            url: `${BASE_URL}/uploads/icons/${filename}` 
-        },
-        { 
-            filePath: path.join(__dirname, '../src/images/', filename), 
-            url: `${BASE_URL}/images/${filename}` 
-        },
-        { 
-            filePath: path.join(__dirname, '../src/controllers/src/images/', filename), 
-            url: `${BASE_URL}/src/controllers/src/images/${filename}` 
-        }
-    ];
-    
-    // البحث عن الملف
-    for (const pathInfo of possiblePaths) {
-        try {
-            if (fs.existsSync(pathInfo.filePath)) {
-                console.log(`Found icon at: ${pathInfo.filePath}`);
-                return pathInfo.url;
-            }
-        } catch (error) {
-            console.warn(`Error checking path ${pathInfo.filePath}:`, error.message);
-        }
-    }
-    
-    // إذا لم يوجد الملف، إرجاع المسار الافتراضي الجديد
-    console.warn(`Icon file not found: ${filename}, using default`);
-    return `${BASE_URL}/uploads/icons/icon.png`;
-};
-
-// ✅ دالة محسنة لبناء URLs للملفات العامة
-const buildFileUrl = (filename, type = 'general') => {
-    if (!filename) return null;
-    if (filename.startsWith('http')) return filename;
-    
-    const fs = require('fs');
-    const path = require('path');
-    
-    // خريطة أنواع الملفات ومساراتها
-    const typeMapping = {
-        'realestate': [
-            { dir: '../uploads/realestate/', urlPath: '/uploads/realestate/' },
-            { dir: '../src/images/', urlPath: '/images/' },
-            { dir: '../src/controllers/src/images/', urlPath: '/src/controllers/src/images/' }
-        ],
-        'icons': [
-            { dir: '../uploads/icons/', urlPath: '/uploads/icons/' },
-            { dir: '../src/images/', urlPath: '/images/' },
-            { dir: '../src/controllers/src/images/', urlPath: '/src/controllers/src/images/' }
-        ],
-        'general': [
-            { dir: '../uploads/general/', urlPath: '/uploads/general/' },
-            { dir: '../src/images/', urlPath: '/images/' },
-            { dir: '../src/controllers/src/images/', urlPath: '/src/controllers/src/images/' }
-        ]
-    };
-    
-    const searchPaths = typeMapping[type] || typeMapping['general'];
-    
-    // البحث عن الملف في المسارات المختلفة
-    for (const pathInfo of searchPaths) {
-        try {
-            const fullPath = path.join(__dirname, pathInfo.dir, filename);
-            if (fs.existsSync(fullPath)) {
-                return `${BASE_URL}${pathInfo.urlPath}${filename}`;
-            }
-        } catch (error) {
-            console.warn(`Error checking path for ${type}:`, error.message);
-        }
-    }
-    
-    // إرجاع المسار الافتراضي إذا لم يوجد الملف
-    return `${BASE_URL}${searchPaths[0].urlPath}${filename}`;
+    return `${BASE_URL}/src/controllers/src/images/${filename}`;
 };
 
 const buildPropertyFileUrl = (propertyKey, filename) => {
