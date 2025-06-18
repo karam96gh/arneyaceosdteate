@@ -327,6 +327,34 @@ app.use((err, req, res, next) => {
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
 });
+// ✅ Middleware لإعادة توجيه المسارات الخاطئة
+app.use('/src/controllers/src/images/:filename', (req, res, next) => {
+    const { filename } = req.params;
+    const fs = require('fs');
+    
+    // البحث عن الملف في المواقع المختلفة
+    const searchPaths = [
+        { path: path.join(__dirname, 'src/controllers/src/images', filename), url: `/src/controllers/src/images/${filename}` },
+        { path: path.join(__dirname, 'src/images', filename), url: `/images/${filename}` },
+        { path: path.join(__dirname, 'uploads/realestate', filename), url: `/uploads/realestate/${filename}` }
+    ];
+    
+    for (const searchPath of searchPaths) {
+        if (fs.existsSync(searchPath.path)) {
+            console.log(`Found file at: ${searchPath.path}`);
+            // إعادة توجيه إلى المسار الصحيح
+            return res.redirect(searchPath.url);
+        }
+    }
+    
+    // إذا لم يوجد الملف، إرجاع 404 مع معلومات مفيدة
+    res.status(404).json({
+        error: 'File not found',
+        filename,
+        searchedPaths: searchPaths.map(p => p.path),
+        suggestion: `Use /api/files/check/${filename} to locate the file`
+    });
+});
 
 // ✅ 404 handler
 app.use('*', (req, res) => {
