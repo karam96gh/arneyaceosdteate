@@ -4,6 +4,9 @@ const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// ✅ استيراد role mappings
+const { REVERSE_ROLE_MAPPING } = require('../controllers/authController');
+
 // التحقق من الـ token
 const requireAuth = async (req, res, next) => {
   try {
@@ -31,9 +34,15 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    // ✅ تحويل role للاستخدام في التحقق من الصلاحيات
+    req.user = {
+      ...user,
+      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+    };
+    
     next();
   } catch (error) {
+    console.error('Auth middleware error:', error);
     res.status(401).json({
       success: false,
       error: { code: 'TOKEN_ERROR', message: 'Invalid token' }
@@ -41,7 +50,7 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-// التحقق من الدور
+// التحقق من الدور - محدث
 const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -51,10 +60,14 @@ const requireRole = (roles) => {
       });
     }
 
+    // ✅ التحقق من الدور (سيكون مُحوَّل بالفعل من middleware السابق)
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: { code: 'INSUFFICIENT_PERMISSIONS', message: 'Access denied' }
+        error: { 
+          code: 'INSUFFICIENT_PERMISSIONS', 
+          message: `Access denied. Required roles: ${roles.join(', ')}. Your role: ${req.user.role}` 
+        }
       });
     }
 
@@ -62,7 +75,7 @@ const requireRole = (roles) => {
   };
 };
 
-// التحقق من ملكية المورد
+// التحقق من ملكية المورد - محدث
 const requireOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -103,6 +116,7 @@ const requireOwnership = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error('Ownership middleware error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }

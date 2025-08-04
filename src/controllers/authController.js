@@ -5,6 +5,22 @@ const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// ✅ إضافة mapping للـ roles
+const ROLE_MAPPING = {
+  'user': 'USER',
+  'user_vip': 'USER_VIP', 
+  'admin': 'ADMIN',
+  'company': 'COMPANY'
+};
+
+// ✅ العكس للقراءة
+const REVERSE_ROLE_MAPPING = {
+  'USER': 'user',
+  'USER_VIP': 'user_vip',
+  'ADMIN': 'admin', 
+  'COMPANY': 'company'
+};
+
 // تسجيل الدخول
 const login = async (req, res) => {
   try {
@@ -37,12 +53,20 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { 
+        id: user.id, 
+        username: user.username, 
+        // ✅ تحويل role للعرض
+        role: REVERSE_ROLE_MAPPING[user.role] || user.role 
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     const { password: _, ...userResponse } = user;
+    
+    // ✅ تحويل role في الاستجابة
+    userResponse.role = REVERSE_ROLE_MAPPING[user.role] || user.role;
 
     res.json({
       success: true,
@@ -60,7 +84,7 @@ const login = async (req, res) => {
   }
 };
 
-// التسجيل
+// التسجيل - مُصحح
 const register = async (req, res) => {
   try {
     const { username, password, fullName, email, phone, companyName, companyLicense } = req.body;
@@ -96,8 +120,9 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // تحديد النوع بناءً على بيانات الشركة
-    const role = (companyName && companyLicense) ? 'company' : 'user';
+    // ✅ تحديد النوع بناءً على بيانات الشركة واستخدام القيم الصحيحة للـ enum
+    const roleString = (companyName && companyLicense) ? 'company' : 'user';
+    const roleEnum = ROLE_MAPPING[roleString]; // تحويل إلى enum value
 
     const user = await prisma.user.create({
       data: {
@@ -106,19 +131,26 @@ const register = async (req, res) => {
         fullName,
         email,
         phone,
-        role,
+        role: roleEnum, // ✅ استخدام enum value
         companyName,
         companyLicense
       }
     });
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: roleString // ✅ استخدام string للـ JWT
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     const { password: _, ...userResponse } = user;
+    
+    // ✅ تحويل role للعرض
+    userResponse.role = REVERSE_ROLE_MAPPING[user.role] || user.role;
 
     res.status(201).json({
       success: true,
@@ -129,6 +161,7 @@ const register = async (req, res) => {
       message: 'Registration successful'
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }
@@ -136,7 +169,7 @@ const register = async (req, res) => {
   }
 };
 
-// الحصول على بيانات المستخدم الحالي
+// الحصول على بيانات المستخدم الحالي - مُصحح
 const getMe = async (req, res) => {
   try {
     const prisma = dbManager.getPrisma();
@@ -158,7 +191,20 @@ const getMe = async (req, res) => {
       }
     });
 
-    res.json(user);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found' }
+      });
+    }
+
+    // ✅ تحويل role للعرض
+    const formattedUser = {
+      ...user,
+      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+    };
+
+    res.json(formattedUser);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -167,7 +213,7 @@ const getMe = async (req, res) => {
   }
 };
 
-// باقي الوظائف...
+// الحصول على جميع المستخدمين - مُصحح
 const getUsers = async (req, res) => {
   try {
     const prisma = dbManager.getPrisma();
@@ -189,7 +235,13 @@ const getUsers = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(users);
+    // ✅ تحويل roles للعرض
+    const formattedUsers = users.map(user => ({
+      ...user,
+      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+    }));
+
+    res.json(formattedUsers);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -198,14 +250,20 @@ const getUsers = async (req, res) => {
   }
 };
 
+// تحديث المستخدم - مُصحح
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
     
     // إزالة الحقول الممنوعة
     delete updates.password;
     delete updates.id;
+
+    // ✅ تحويل role إذا تم تمريره
+    if (updates.role && ROLE_MAPPING[updates.role]) {
+      updates.role = ROLE_MAPPING[updates.role];
+    }
 
     const prisma = dbManager.getPrisma();
     const user = await prisma.user.update({
@@ -226,7 +284,13 @@ const updateUser = async (req, res) => {
       }
     });
 
-    res.json(user);
+    // ✅ تحويل role للعرض
+    const formattedUser = {
+      ...user,
+      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+    };
+
+    res.json(formattedUser);
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({
@@ -241,6 +305,7 @@ const updateUser = async (req, res) => {
   }
 };
 
+// تغيير كلمة المرور
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -282,6 +347,7 @@ const changePassword = async (req, res) => {
   }
 };
 
+// إعادة تعيين كلمة المرور
 const resetPassword = async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
@@ -326,5 +392,8 @@ module.exports = {
   getUsers,
   updateUser,
   changePassword,
-  resetPassword
+  resetPassword,
+  // ✅ تصدير المساعدات للاستخدام في أماكن أخرى
+  ROLE_MAPPING,
+  REVERSE_ROLE_MAPPING
 };
