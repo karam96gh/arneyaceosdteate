@@ -5,22 +5,6 @@ const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// ✅ إضافة mapping للـ roles
-const ROLE_MAPPING = {
-  'user': 'USER',
-  'user_vip': 'USER_VIP', 
-  'admin': 'ADMIN',
-  'company': 'COMPANY'
-};
-
-// ✅ العكس للقراءة
-const REVERSE_ROLE_MAPPING = {
-  'USER': 'user',
-  'USER_VIP': 'user_vip',
-  'ADMIN': 'admin', 
-  'COMPANY': 'company'
-};
-
 // تسجيل الدخول
 const login = async (req, res) => {
   try {
@@ -56,8 +40,8 @@ const login = async (req, res) => {
       { 
         id: user.id, 
         username: user.username, 
-        // ✅ تحويل role للعرض
-        role: REVERSE_ROLE_MAPPING[user.role] || user.role 
+        // ✅ تحويل role للعرض (للـ JWT)
+        role: user.role.toLowerCase()
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -66,7 +50,7 @@ const login = async (req, res) => {
     const { password: _, ...userResponse } = user;
     
     // ✅ تحويل role في الاستجابة
-    userResponse.role = REVERSE_ROLE_MAPPING[user.role] || user.role;
+    userResponse.role = user.role.toLowerCase();
 
     res.json({
       success: true,
@@ -77,6 +61,7 @@ const login = async (req, res) => {
       message: 'Login successful'
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }
@@ -84,7 +69,7 @@ const login = async (req, res) => {
   }
 };
 
-// التسجيل - مُصحح
+// التسجيل
 const register = async (req, res) => {
   try {
     const { username, password, fullName, email, phone, companyName, companyLicense } = req.body;
@@ -120,9 +105,8 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // ✅ تحديد النوع بناءً على بيانات الشركة واستخدام القيم الصحيحة للـ enum
-    const roleString = (companyName && companyLicense) ? 'company' : 'user';
-    const roleEnum = ROLE_MAPPING[roleString]; // تحويل إلى enum value
+    // ✅ تحديد النوع واستخدام enum value مباشرة
+    const roleEnum = (companyName && companyLicense) ? 'COMPANY' : 'USER';
 
     const user = await prisma.user.create({
       data: {
@@ -131,7 +115,7 @@ const register = async (req, res) => {
         fullName,
         email,
         phone,
-        role: roleEnum, // ✅ استخدام enum value
+        role: roleEnum, // ✅ استخدام enum value مباشرة
         companyName,
         companyLicense
       }
@@ -141,7 +125,7 @@ const register = async (req, res) => {
       { 
         id: user.id, 
         username: user.username, 
-        role: roleString // ✅ استخدام string للـ JWT
+        role: user.role.toLowerCase() // ✅ تحويل للـ JWT
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -150,7 +134,7 @@ const register = async (req, res) => {
     const { password: _, ...userResponse } = user;
     
     // ✅ تحويل role للعرض
-    userResponse.role = REVERSE_ROLE_MAPPING[user.role] || user.role;
+    userResponse.role = user.role.toLowerCase();
 
     res.status(201).json({
       success: true,
@@ -169,7 +153,7 @@ const register = async (req, res) => {
   }
 };
 
-// الحصول على بيانات المستخدم الحالي - مُصحح
+// الحصول على بيانات المستخدم الحالي
 const getMe = async (req, res) => {
   try {
     const prisma = dbManager.getPrisma();
@@ -201,11 +185,12 @@ const getMe = async (req, res) => {
     // ✅ تحويل role للعرض
     const formattedUser = {
       ...user,
-      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+      role: user.role.toLowerCase()
     };
 
     res.json(formattedUser);
   } catch (error) {
+    console.error('Get me error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }
@@ -213,7 +198,7 @@ const getMe = async (req, res) => {
   }
 };
 
-// الحصول على جميع المستخدمين - مُصحح
+// الحصول على جميع المستخدمين
 const getUsers = async (req, res) => {
   try {
     const prisma = dbManager.getPrisma();
@@ -238,11 +223,12 @@ const getUsers = async (req, res) => {
     // ✅ تحويل roles للعرض
     const formattedUsers = users.map(user => ({
       ...user,
-      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+      role: user.role.toLowerCase()
     }));
 
     res.json(formattedUsers);
   } catch (error) {
+    console.error('Get users error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }
@@ -250,7 +236,7 @@ const getUsers = async (req, res) => {
   }
 };
 
-// تحديث المستخدم - مُصحح
+// تحديث المستخدم
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -261,8 +247,22 @@ const updateUser = async (req, res) => {
     delete updates.id;
 
     // ✅ تحويل role إذا تم تمريره
-    if (updates.role && ROLE_MAPPING[updates.role]) {
-      updates.role = ROLE_MAPPING[updates.role];
+    if (updates.role) {
+      const validRoles = ['user', 'user_vip', 'admin', 'company'];
+      if (!validRoles.includes(updates.role.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_ROLE', message: `Invalid role: ${updates.role}` }
+        });
+      }
+      // تحويل إلى enum value
+      const roleMap = {
+        'user': 'USER',
+        'user_vip': 'USER_VIP',
+        'admin': 'ADMIN',
+        'company': 'COMPANY'
+      };
+      updates.role = roleMap[updates.role.toLowerCase()];
     }
 
     const prisma = dbManager.getPrisma();
@@ -287,11 +287,12 @@ const updateUser = async (req, res) => {
     // ✅ تحويل role للعرض
     const formattedUser = {
       ...user,
-      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+      role: user.role.toLowerCase()
     };
 
     res.json(formattedUser);
   } catch (error) {
+    console.error('Update user error:', error);
     if (error.code === 'P2025') {
       return res.status(404).json({
         success: false,
@@ -340,6 +341,7 @@ const changePassword = async (req, res) => {
       message: 'Password changed successfully'
     });
   } catch (error) {
+    console.error('Change password error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }
@@ -372,6 +374,7 @@ const resetPassword = async (req, res) => {
       message: 'Password reset successfully'
     });
   } catch (error) {
+    console.error('Reset password error:', error);
     if (error.code === 'P2025') {
       return res.status(404).json({
         success: false,
@@ -392,8 +395,5 @@ module.exports = {
   getUsers,
   updateUser,
   changePassword,
-  resetPassword,
-  // ✅ تصدير المساعدات للاستخدام في أماكن أخرى
-  ROLE_MAPPING,
-  REVERSE_ROLE_MAPPING
+  resetPassword
 };

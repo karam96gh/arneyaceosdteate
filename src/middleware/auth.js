@@ -4,9 +4,6 @@ const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// ✅ استيراد role mappings
-const { REVERSE_ROLE_MAPPING } = require('../controllers/authController');
-
 // التحقق من الـ token
 const requireAuth = async (req, res, next) => {
   try {
@@ -37,7 +34,7 @@ const requireAuth = async (req, res, next) => {
     // ✅ تحويل role للاستخدام في التحقق من الصلاحيات
     req.user = {
       ...user,
-      role: REVERSE_ROLE_MAPPING[user.role] || user.role
+      role: user.role.toLowerCase() // تحويل من ADMIN إلى admin
     };
     
     next();
@@ -50,7 +47,7 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-// التحقق من الدور - محدث
+// التحقق من الدور
 const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -75,7 +72,7 @@ const requireRole = (roles) => {
   };
 };
 
-// التحقق من ملكية المورد - محدث
+// التحقق من ملكية المورد
 const requireOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
