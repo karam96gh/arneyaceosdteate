@@ -76,6 +76,10 @@ const getAllRealEstate = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
+               advertiserType: realEstate.advertiserType || "user",
+               advertiserName: realEstate.advertiserName || "",
+               advertiserPhone: realEstate.advertiserPhone || "",
+               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
                 // ✅ تحويل coverImage إلى مسار كامل
                 coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,
@@ -175,6 +179,10 @@ const getRealEstateById = async (req, res) => {
             paymentMethod: realEstate.paymentMethod,
             mainCategoryId: realEstate.mainCategoryId,
             subCategoryId: realEstate.subCategoryId,
+             advertiserType: realEstate.advertiserType || "user",
+               advertiserName: realEstate.advertiserName || "",
+               advertiserPhone: realEstate.advertiserPhone || "",
+               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
             // ✅ تحويل coverImage إلى مسار كامل
             coverImage: buildRealEstateFileUrl(realEstate.coverImage),
             finalTypeId: realEstate.finalTypeId,
@@ -572,6 +580,10 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
+                 advertiserType: realEstate.advertiserType || "user",
+               advertiserName: realEstate.advertiserName || "",
+               advertiserPhone: realEstate.advertiserPhone || "",
+               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
                 // ✅ تحويل coverImage إلى مسار كامل
                 coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,

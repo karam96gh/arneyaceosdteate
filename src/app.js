@@ -47,7 +47,9 @@ const finalTypeRoutes = require('./routes/finalTypeRoutes');
 const buildingRoutes = require('./routes/buildingRoutes');
 const propertyRoutes = require('./routes/propertyRoutes');
 const filePropertyRoutes = require('./routes/filePropertyRoutes');
-
+const authRoutes = require('./routes/authRoutes');
+const reservationsRoutes = require('./routes/reservationsRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 // ✅ Security middleware
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -343,7 +345,9 @@ app.use('/api/finaltypes', finalTypeRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/properties', filePropertyRoutes);
 app.use('/api', buildingRoutes);
-
+app.use('/api/auth', authRoutes);
+app.use('/api/reservations', reservationsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 // File upload routes
 app.use('/images', require('./routes/uploadImage'));
 app.use('/api', require('./routes/upload_file'));
@@ -394,35 +398,43 @@ app.get('/health', async (req, res) => {
 app.get('/api', (req, res) => {
     res.json({
         name: 'Real Estate API',
-        version: '2.1.0',
-        description: 'Real Estate Management System API',
+        version: '2.2.0', // تحديث رقم الإصدار
+        description: 'Real Estate Management System API with Authentication & Reservations',
         endpoints: {
+            // المسارات الموجودة
             cities: '/api/cities',
             neighborhoods: '/api/neighborhoods',
             finalCities: '/api/finalCity',
             realEstate: '/api/realestate',
             properties: '/api/properties',
             buildings: '/api/buildings',
-            files: '/api/files'
+            files: '/api/files',
+            
+            // المسارات الجديدة
+            auth: '/api/auth',
+            reservations: '/api/reservations',
+            dashboard: '/api/dashboard'
         },
-        fileRoutes: {
-            newFiles: '/uploads/realestate/',
-            legacyFiles: '/src/controllers/src/images/',
-            generalFiles: '/images/'
+        authEndpoints: {
+            login: 'POST /api/auth/login',
+            register: 'POST /api/auth/register',
+            profile: 'GET /api/auth/me',
+            users: 'GET /api/auth/users (Admin only)',
+            updateUser: 'PUT /api/auth/users/:id (Admin only)',
+            changePassword: 'POST /api/auth/change-password',
+            resetPassword: 'POST /api/auth/reset-password (Admin only)'
         },
-        diagnostics: {
-            checkFile: '/api/files/check/{filename}',
-            checkFileSimple: '/check-file/{filename}',
-            health: '/health'
+        reservationEndpoints: {
+            create: 'POST /api/reservations',
+            getAll: 'GET /api/reservations (Admin/Company)',
+            getUserReservations: 'GET /api/reservations/user',
+            update: 'PUT /api/reservations/:id',
+            delete: 'DELETE /api/reservations/:id',
+            stats: 'GET /api/reservations/stats (Admin/Company)'
         },
-        staticRoutes: [
-            '/uploads/realestate/',
-            '/src/controllers/src/images/',
-            '/images/',
-            '/uploads/icons/',
-            '/uploads/properties/',
-            '/uploads/general/'
-        ]
+        dashboardEndpoints: {
+            stats: 'GET /api/dashboard/stats (Admin/Company)'
+        }
     });
 });
 
