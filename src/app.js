@@ -47,9 +47,10 @@ const finalTypeRoutes = require('./routes/finalTypeRoutes');
 const buildingRoutes = require('./routes/buildingRoutes');
 const propertyRoutes = require('./routes/propertyRoutes');
 const filePropertyRoutes = require('./routes/filePropertyRoutes');
-const authRoutes = require('./routes/authRoutes');
 const reservationsRoutes = require('./routes/reservationsRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const authRoutes = require('./routes/authRoutes');
+
 // ✅ Security middleware
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
