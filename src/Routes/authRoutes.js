@@ -12,7 +12,7 @@ const {
 } = require('../controllers/authController');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
-// مسارات عامة (بدون مصادقة)
+// مساx
 router.post('/login', login);
 router.post('/register', register);
 
