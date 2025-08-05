@@ -1,7 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const realestateController = require('../controllers/realestateController');
-const { requireAuth, requireRole, requirePropertyOwnership, checkAuthHeader } = require('../middleware/auth');
+
+// Test middleware import
+console.log('=== TESTING MIDDLEWARE IMPORT ===');
+try {
+    const authMiddleware = require('../middleware/auth');
+    console.log('Auth middleware imported successfully:', Object.keys(authMiddleware));
+    const { requireAuth, requireRole, requirePropertyOwnership, checkAuthHeader } = authMiddleware;
+    console.log('Individual middleware functions:', { requireAuth: !!requireAuth, requireRole: !!requireRole, checkAuthHeader: !!checkAuthHeader });
+} catch (error) {
+    console.error('Error importing auth middleware:', error);
+}
 
 router.get('/', realestateController.getAllRealEstate);
 router.get('/:id', realestateController.getRealEstateById);
@@ -12,15 +22,15 @@ router.get('/my-properties', requireAuth, requireRole(['company']), realestateCo
 router.post('/', 
     (req, res, next) => {
         console.log('=== ROUTE MIDDLEWARE EXECUTED ===');
+        console.log('Request method:', req.method);
+        console.log('Request URL:', req.url);
+        console.log('Request path:', req.path);
         next();
     },
-    checkAuthHeader,
-    requireAuth, 
-    requireRole(['admin', 'company']), 
-    realestateController.upload.fields([
-        { name: 'coverImage', maxCount: 1 },
-        { name: 'files', maxCount: 10 }
-    ]),
+    (req, res, next) => {
+        console.log('=== SECOND MIDDLEWARE EXECUTED ===');
+        next();
+    },
     realestateController.addRealEstate
 );
 
