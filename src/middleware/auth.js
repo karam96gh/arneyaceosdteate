@@ -17,7 +17,10 @@ const enumToRole = (enumValue) => {
 
 // التحقق من وجود Authorization header
 const checkAuthHeader = (req, res, next) => {
+  console.log('=== CHECK AUTH HEADER MIDDLEWARE EXECUTED ===');
   const authHeader = req.header('Authorization');
+  console.log('Auth header in checkAuthHeader:', authHeader);
+  
   if (!authHeader) {
     return res.status(401).json({
       success: false,
@@ -30,11 +33,13 @@ const checkAuthHeader = (req, res, next) => {
       error: { code: 'INVALID_AUTH_FORMAT', message: 'Authorization header must start with Bearer ' }
     });
   }
+  console.log('=== CHECK AUTH HEADER PASSED ===');
   next();
 };
 
 // التحقق من الـ token - FIXED
 const requireAuth = async (req, res, next) => {
+  console.log('=== REQUIRE AUTH MIDDLEWARE EXECUTED ===');
   try {
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
