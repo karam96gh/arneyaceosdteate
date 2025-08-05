@@ -274,7 +274,6 @@ const addRealEstate = async (req, res) => {
 
         // ✅ تحديد الشركة المالكة
         let finalCompanyId = 0;
-        console.log('req.user:', req);
 console.log('headers:', req.headers);
         if (req.user.role === 'company') {
             finalCompanyId = req.user.id;
