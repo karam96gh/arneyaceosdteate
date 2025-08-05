@@ -22,9 +22,7 @@ const trackMiddleware = (name) => (req, res, next) => {
 };
 
 router.get('/', realestateController.getAllRealEstate);
-router.get('/:id', realestateController.getRealEstateById);
-router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
-router.get('/similar/:id', realestateController.getRealEstateSimilar);
+
 // ✅ إضافة endpoint للاختبار
 router.get('/test-auth', 
     trackMiddleware('Test Auth Start'),
@@ -67,6 +65,10 @@ router.get('/test-config', (req, res) => {
         }
     });
 });
+
+router.get('/:id', realestateController.getRealEstateById);
+router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
+router.get('/similar/:id', realestateController.getRealEstateSimilar);
 
 // ✅ إضافة endpoint للاختبار مع auth بدون multer
 router.post('/test-post-auth', 
