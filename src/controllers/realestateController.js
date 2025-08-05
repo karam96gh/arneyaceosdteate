@@ -29,7 +29,7 @@ const getAllRealEstate = async (req, res) => {
                 building: { select: { id: true, title: true, status: true } },
                 buildingItem: { select: { id: true, name: true, type: true } },
                 // ✅ إضافة معلومات الشركة
-                company: { 
+                user: { 
                     select: { 
                         id: true, 
                         companyName: true, 
@@ -84,9 +84,7 @@ const getAllRealEstate = async (req, res) => {
                 buildingItemType: realEstate.buildingItem?.type,
                 // ✅ إضافة معلومات الشركة
                 companyId: realEstate.companyId,
-                companyName: realEstate.company.companyName,
-                companyPhone: realEstate.company.phone,
-                companyEmail: realEstate.company.email,
+                companyName:realEstate.companyName,
                 cityId: realEstate.cityId,
                 viewTime: realEstate.viewTime,
                 neighborhoodId: realEstate.neighborhoodId,
