@@ -39,8 +39,11 @@ const requireAuth = async (req, res, next) => {
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
     
+    console.log('=== AUTH DEBUG ===');
     console.log('Auth header:', authHeader);
     console.log('Token:', token ? 'Present' : 'Missing');
+    console.log('All headers:', Object.keys(req.headers));
+    console.log('Authorization header value:', req.headers.authorization);
     
     if (!token) {
       return res.status(401).json({ 
@@ -78,6 +81,7 @@ const requireAuth = async (req, res, next) => {
     };
     
     console.log('User set in req.user:', req.user);
+    console.log('=== END AUTH DEBUG ===');
     
     next();
   } catch (error) {
