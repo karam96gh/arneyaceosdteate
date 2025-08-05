@@ -20,6 +20,8 @@ const enumToRole = (enumValue) => {
 const requireAuth = async (req, res, next) => {
   try {
     console.log('🔐 Auth middleware called');
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
     console.log('Headers:', req.headers);
     console.log('Authorization header:', req.header('Authorization'));
     

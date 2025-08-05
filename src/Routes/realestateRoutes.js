@@ -111,8 +111,24 @@ const checkUserAfterUpload = (req, res, next) => {
 };
 
 router.post('/', 
+    (req, res, next) => {
+        console.log('🚀 POST / route handler called');
+        console.log('Request method:', req.method);
+        console.log('Request URL:', req.url);
+        console.log('Request headers:', req.headers);
+        next();
+    },
     trackMiddleware('Route Start'),
+    (req, res, next) => {
+        console.log('🔐 About to call requireAuth middleware');
+        next();
+    },
     requireAuth, 
+    (req, res, next) => {
+        console.log('🔐 requireAuth middleware completed');
+        console.log('req.user after requireAuth:', req.user);
+        next();
+    },
     trackMiddleware('After Auth'),
     requireRole(['admin', 'company']), 
     trackMiddleware('After Role Check'),
