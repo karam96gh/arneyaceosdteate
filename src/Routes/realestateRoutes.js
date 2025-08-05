@@ -10,6 +10,10 @@ router.get('/similar/:id', realestateController.getRealEstateSimilar);
 router.get('/my-properties', requireAuth, requireRole(['company']), realestateController.getMyProperties);
 
 router.post('/', 
+    (req, res, next) => {
+        console.log('=== ROUTE MIDDLEWARE EXECUTED ===');
+        next();
+    },
     checkAuthHeader,
     requireAuth, 
     requireRole(['admin', 'company']), 
