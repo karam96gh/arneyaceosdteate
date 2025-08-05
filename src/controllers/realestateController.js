@@ -269,12 +269,13 @@ const addRealEstate = async (req, res) => {
         const {
             price, title, cityId, neighborhoodId, paymentMethod, mainCategoryId,
             subCategoryId, finalTypeId, buildingId, buildingItemId, viewTime, 
-            location, description, finalCityId, properties, companyId, ...otherData
+            location, description, finalCityId, properties, ...otherData
         } = req.body;
 
         // ✅ تحديد الشركة المالكة
-        let finalCompanyId = companyId;
-        
+        let finalCompanyId = 0;
+        console.log('req.user:', req.user);
+console.log('headers:', req.headers);
         if (req.user.role === 'company') {
             finalCompanyId = req.user.id;
         } else if (req.user.role === 'admin' && !finalCompanyId) {
