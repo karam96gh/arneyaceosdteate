@@ -13,6 +13,14 @@ console.log('🔐 Auth middleware imported:', {
 console.log('🛣️ Real estate routes loaded');
 console.log('Available middleware:', { requireAuth: !!requireAuth, requireRole: !!requireRole, requirePropertyOwnership: !!requirePropertyOwnership });
 
+// ✅ إضافة middleware للتعقب
+const trackMiddleware = (name) => (req, res, next) => {
+    console.log(`🔄 Middleware executed: ${name}`);
+    console.log(`📝 Request URL: ${req.method} ${req.url}`);
+    console.log(`👤 User object:`, req.user);
+    next();
+};
+
 router.get('/', realestateController.getAllRealEstate);
 router.get('/:id', realestateController.getRealEstateById);
 router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
@@ -97,14 +105,6 @@ const checkUserAfterUpload = (req, res, next) => {
         });
     }
     
-    next();
-};
-
-// ✅ إضافة middleware للتعقب
-const trackMiddleware = (name) => (req, res, next) => {
-    console.log(`🔄 Middleware executed: ${name}`);
-    console.log(`📝 Request URL: ${req.method} ${req.url}`);
-    console.log(`👤 User object:`, req.user);
     next();
 };
 
