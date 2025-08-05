@@ -92,7 +92,7 @@ const createFileFilter = (allowedTypes) => {
 
 // ✅ إعدادات Multer موحدة
 const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1024) => {
-    return multer({
+    const multerInstance = multer({
         storage: createStorage(uploadType),
         fileFilter: createFileFilter(allowedTypes),
         limits: {
@@ -100,6 +100,26 @@ const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1
             files: 10 // حد أقصى 10 ملفات
         }
     });
+    
+    // ✅ إضافة middleware للحفاظ على req.user
+    return (req, res, next) => {
+        console.log('📁 Multer middleware called');
+        console.log('User before multer:', req.user);
+        
+        multerInstance(req, res, (err) => {
+            if (err) {
+                console.error('❌ Multer error:', err);
+                return next(err);
+            }
+            
+            console.log('✅ Multer completed successfully');
+            console.log('User after multer:', req.user);
+            console.log('Files:', req.files);
+            console.log('Body:', req.body);
+            
+            next();
+        });
+    };
 };
 
 // ✅ Middleware للأنواع المختلفة
