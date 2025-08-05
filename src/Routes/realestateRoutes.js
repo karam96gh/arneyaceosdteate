@@ -114,6 +114,7 @@ router.post('/',
     trackMiddleware('After Auth'),
     requireRole(['admin', 'company']), 
     trackMiddleware('After Role Check'),
+    trackMiddleware('Before Upload'),
     realestateController.upload.fields([
         { name: 'coverImage', maxCount: 1 },
         { name: 'files', maxCount: 10 }

@@ -6,6 +6,11 @@ const path = require('path');
 // ✅ استخدام الـ middleware الموحد
 const upload = uploadMiddlewares.realEstate;
 
+// ✅ إضافة debugging للـ upload middleware
+console.log('📁 Upload middleware type:', typeof upload);
+console.log('📁 Upload middleware has fields method:', typeof upload.fields);
+console.log('📁 Upload middleware object:', Object.keys(upload));
+
 // Get all real estate listings - FIXED
 const getAllRealEstate = async (req, res) => {
     try {
