@@ -3,8 +3,24 @@ const prisma = require('../config/prisma');
 // Get all buildings
 const getBuildings = async (req, res) => {
     try {
+        // ✅ إضافة فلتر للشركة
+        let whereClause = {};
+        if (req.user && req.user.role === 'company') {
+            whereClause.companyId = req.user.id;
+        }
+
         const buildings = await prisma.building.findMany({
+            where: whereClause, // ✅ إضافة الشرط
             include: {
+                // ✅ إضافة معلومات الشركة
+                company: { 
+                    select: { 
+                        id: true, 
+                        companyName: true, 
+                        phone: true,
+                        email: true
+                    } 
+                },
                 items: {
                     include: {
                         _count: {
@@ -26,7 +42,11 @@ const getBuildings = async (req, res) => {
         const buildingsWithCounts = buildings.map(building => ({
             ...building,
             realEstateCount: building._count.realEstates,
-            itemsCount: building._count.items
+            itemsCount: building._count.items,
+            // ✅ إضافة معلومات الشركة
+            companyName: building.company.companyName,
+            companyPhone: building.company.phone,
+            companyEmail: building.company.email
         }));
 
         res.status(200).json(buildingsWithCounts);
@@ -34,6 +54,77 @@ const getBuildings = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// تعديل createBuilding
+const createBuilding = async (req, res) => {
+    try {
+        const { title, status, location, buildingAge, companyId } = req.body;
+
+        // ✅ تحديد الشركة المالكة
+        let finalCompanyId = companyId;
+        
+        if (req.user.role === 'company') {
+            finalCompanyId = req.user.id;
+        } else if (req.user.role === 'admin' && !finalCompanyId) {
+            return res.status(400).json({ 
+                message: 'Company ID is required for admin users' 
+            });
+        }
+
+        if (!title || !status || !finalCompanyId) {
+            return res.status(400).json({ 
+                message: 'Title, status, and company ID are required' 
+            });
+        }
+
+        // التحقق من صحة status
+        const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+            });
+        }
+
+        // ✅ التحقق من وجود الشركة
+        const company = await prisma.user.findUnique({ 
+            where: { id: parseInt(finalCompanyId) },
+            select: { id: true, role: true, isActive: true }
+        });
+        
+        if (!company || company.role !== 'COMPANY' || !company.isActive) {
+            return res.status(400).json({ 
+                message: 'Invalid or inactive company' 
+            });
+        }
+
+        const building = await prisma.building.create({
+            data: {
+                title,
+                status,
+                location: location || '0.0,0.0',
+                buildingAge,
+                companyId: parseInt(finalCompanyId) // ✅ إضافة companyId
+            },
+            include: {
+                company: { 
+                    select: { 
+                        id: true, 
+                        companyName: true, 
+                        phone: true 
+                    } 
+                }
+            }
+        });
+
+        res.status(201).json({
+            ...building,
+            companyName: building.company.companyName
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 
 // Get building by ID with items
 const getBuildingById = async (req, res) => {
@@ -90,38 +181,42 @@ const getBuildingById = async (req, res) => {
 };
 
 // Create new building
-const createBuilding = async (req, res) => {
-    try {
-        const { title, status, location, buildingAge } = req.body;
-
-        if (!title || !status) {
-            return res.status(400).json({ 
-                message: 'Title and status are required' 
-            });
+const getMyBuildings = async (req, res) => {
+  try {
+    const prisma = dbManager.getPrisma();
+    
+    const buildings = await prisma.building.findMany({
+      where: { companyId: req.user.id },
+      include: {
+        items: {
+          include: {
+            _count: { select: { realEstates: true } }
+          }
+        },
+        _count: {
+          select: {
+            items: true,
+            realEstates: true
+          }
         }
-
-        // التحقق من صحة status
-        const validStatuses = ['مكتمل', 'قيد الإنشاء', 'مخطط'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
-            });
-        }
-
-        const building = await prisma.building.create({
-            data: {
-                title,
-                status,
-                location: location || '0.0,0.0',
-                buildingAge
-            }
-        });
-
-        res.status(201).json(building);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const formattedBuildings = buildings.map(building => ({
+      ...building,
+      itemsCount: building._count.items,
+      realEstatesCount: building._count.realEstates
+    }));
+    
+    res.json(formattedBuildings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
+
+// الحصول على عقارات الشركة
+
 
 // Update building
 const updateBuilding = async (req, res) => {
@@ -217,5 +312,6 @@ module.exports = {
     getBuildingById,
     createBuilding,
     updateBuilding,
-    deleteBuilding
+    deleteBuilding,
+    getMyBuildings
 };

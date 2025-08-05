@@ -11,7 +11,14 @@ const getAllRealEstate = async (req, res) => {
     try {
         const prisma = dbManager.getPrisma();
         
+        // ✅ إضافة فلتر للشركة
+        let whereClause = {};
+        if (req.user && req.user.role === 'company') {
+            whereClause.companyId = req.user.id;
+        }
+        
         const realEstates = await prisma.realEstate.findMany({
+            where: whereClause, // ✅ إضافة الشرط
             include: {
                 city: { select: { id: true, name: true } },
                 neighborhood: { select: { id: true, name: true } },
@@ -19,9 +26,17 @@ const getAllRealEstate = async (req, res) => {
                 subCategory: { select: { id: true, name: true } },
                 finalType: { select: { id: true, name: true } },
                 finalCity: { select: { id: true, name: true } },
-                // ✅ إضافة العلاقات الجديدة
                 building: { select: { id: true, title: true, status: true } },
                 buildingItem: { select: { id: true, name: true, type: true } },
+                // ✅ إضافة معلومات الشركة
+                company: { 
+                    select: { 
+                        id: true, 
+                        companyName: true, 
+                        phone: true,
+                        email: true
+                    } 
+                },
                 files: { select: { id: true, name: true } },
                 propertyValues: {
                     include: {
@@ -42,7 +57,7 @@ const getAllRealEstate = async (req, res) => {
             }
         });
 
-        // تنسيق البيانات
+        // تنسيق البيانات (نفس الكود الموجود + إضافة معلومات الشركة)
         const formattedData = realEstates.map(realEstate => {
             const propertyValuesObj = {};
             realEstate.propertyValues.forEach(pv => {
@@ -63,11 +78,15 @@ const getAllRealEstate = async (req, res) => {
                 finalCityName: realEstate.finalCity?.name,
                 subCategoryName: realEstate.subCategory.name,
                 finalTypeName: realEstate.finalType.name,
-                // ✅ إضافة بيانات المباني
                 buildingName: realEstate.building?.title,
                 buildingItemName: realEstate.buildingItem?.name,
                 buildingStatus: realEstate.building?.status,
                 buildingItemType: realEstate.buildingItem?.type,
+                // ✅ إضافة معلومات الشركة
+                companyId: realEstate.companyId,
+                companyName: realEstate.company.companyName,
+                companyPhone: realEstate.company.phone,
+                companyEmail: realEstate.company.email,
                 cityId: realEstate.cityId,
                 viewTime: realEstate.viewTime,
                 neighborhoodId: realEstate.neighborhoodId,
@@ -76,18 +95,15 @@ const getAllRealEstate = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
-               advertiserType: realEstate.advertiserType || "user",
-               advertiserName: realEstate.advertiserName || "",
-               advertiserPhone: realEstate.advertiserPhone || "",
-               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
-                // ✅ تحويل coverImage إلى مسار كامل
+                advertiserType: realEstate.advertiserType || "user",
+                advertiserName: realEstate.advertiserName || "",
+                advertiserPhone: realEstate.advertiserPhone || "",
+                advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
                 coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,
-                // ✅ الحقول المنفصلة
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                // ✅ تحويل files إلى مسارات كاملة
                 files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
@@ -208,8 +224,22 @@ const addRealEstate = async (req, res) => {
         const {
             price, title, cityId, neighborhoodId, paymentMethod, mainCategoryId,
             subCategoryId, finalTypeId, buildingId, buildingItemId, viewTime, 
-            location, description, finalCityId, properties, ...otherData
+            location, description, finalCityId, properties, companyId, ...otherData
         } = req.body;
+
+        // ✅ تحديد الشركة المالكة
+        let finalCompanyId = companyId;
+        
+        // إذا كان المستخدم شركة، استخدم ID الخاص به
+        if (req.user.role === 'company') {
+            finalCompanyId = req.user.id;
+        }
+        // إذا كان admin، يجب تحديد الشركة
+        else if (req.user.role === 'admin' && !finalCompanyId) {
+            return res.status(400).json({ 
+                message: 'Company ID is required for admin users' 
+            });
+        }
 
         // الحصول على الملفات
         const coverImage = req.files?.coverImage?.[0]?.filename;
@@ -217,48 +247,65 @@ const addRealEstate = async (req, res) => {
 
         // التحقق من الحقول المطلوبة
         if (!price || !title || !cityId || !neighborhoodId || !mainCategoryId || 
-            !subCategoryId || !finalTypeId || !coverImage) {
+            !subCategoryId || !finalTypeId || !coverImage || !finalCompanyId) {
             return res.status(400).json({ 
                 message: 'Missing required fields',
-                required: ['price', 'title', 'cityId', 'neighborhoodId', 'mainCategoryId', 'subCategoryId', 'finalTypeId', 'coverImage']
+                required: ['price', 'title', 'cityId', 'neighborhoodId', 'mainCategoryId', 'subCategoryId', 'finalTypeId', 'coverImage', 'companyId']
             });
         }
 
         const prisma = dbManager.getPrisma();
 
-        // ✅ التحقق من صحة المراجع
+        // التحقق من صحة المراجع (نفس الكود الموجود + التحقق من الشركة)
         const validationErrors = [];
 
-        // التحقق من وجود المدينة
+        // التحقق من وجود الشركة
+        const company = await prisma.user.findUnique({ 
+            where: { id: parseInt(finalCompanyId) },
+            select: { id: true, role: true, isActive: true }
+        });
+        if (!company) validationErrors.push('Company not found');
+        if (company && company.role !== 'COMPANY') validationErrors.push('Invalid company user');
+        if (company && !company.isActive) validationErrors.push('Company is not active');
+
+        // باقي التحققات الموجودة...
         const city = await prisma.city.findUnique({ where: { id: parseInt(cityId) } });
         if (!city) validationErrors.push('City not found');
 
-        // التحقق من وجود الحي
         const neighborhood = await prisma.neighborhood.findUnique({ 
             where: { id: parseInt(neighborhoodId) } 
         });
         if (!neighborhood) validationErrors.push('Neighborhood not found');
 
-        // التحقق من النوع النهائي
         const finalType = await prisma.finalType.findUnique({ 
             where: { id: parseInt(finalTypeId) } 
         });
         if (!finalType) validationErrors.push('Final type not found');
 
-        // التحقق من المبنى (إذا تم تمريره)
+        // التحقق من المبنى (إذا تم تمريره) + التأكد من ملكية الشركة
         if (buildingId) {
             const building = await prisma.building.findUnique({ 
-                where: { id: buildingId } 
+                where: { id: buildingId },
+                select: { id: true, companyId: true }
             });
             if (!building) validationErrors.push('Building not found');
+            // ✅ التحقق من ملكية المبنى لنفس الشركة
+            if (building && building.companyId !== parseInt(finalCompanyId)) {
+                validationErrors.push('Building belongs to different company');
+            }
         }
 
-        // التحقق من عنصر المبنى (إذا تم تمريره)
+        // التحقق من عنصر المبنى (إذا تم تمريره) + التأكد من ملكية الشركة
         if (buildingItemId) {
             const buildingItem = await prisma.buildingItem.findUnique({ 
-                where: { id: buildingItemId } 
+                where: { id: buildingItemId },
+                select: { id: true, companyId: true }
             });
             if (!buildingItem) validationErrors.push('Building item not found');
+            // ✅ التحقق من ملكية عنصر المبنى لنفس الشركة
+            if (buildingItem && buildingItem.companyId !== parseInt(finalCompanyId)) {
+                validationErrors.push('Building item belongs to different company');
+            }
         }
 
         if (validationErrors.length > 0) {
@@ -283,6 +330,7 @@ const addRealEstate = async (req, res) => {
                     finalTypeId: parseInt(finalTypeId),
                     buildingId: buildingId || null,
                     buildingItemId: buildingItemId || null,
+                    companyId: parseInt(finalCompanyId), // ✅ إضافة companyId
                     viewTime,
                     location,
                     description,
@@ -293,7 +341,7 @@ const addRealEstate = async (req, res) => {
                 }
             });
 
-            // إضافة الملفات إن وجدت
+            // باقي الكود موجود (إضافة الملفات وقيم الخصائص)...
             if (files.length > 0) {
                 await tx.file.createMany({
                     data: files.map(fileName => ({
@@ -303,11 +351,9 @@ const addRealEstate = async (req, res) => {
                 });
             }
 
-            // إضافة قيم الخصائص إن وجدت
             if (properties && typeof properties === 'object') {
                 const propertyValues = [];
                 for (const [propertyKey, value] of Object.entries(properties)) {
-                    // البحث عن الخاصية
                     const property = await tx.property.findFirst({
                         where: {
                             propertyKey,
@@ -337,9 +383,9 @@ const addRealEstate = async (req, res) => {
         res.status(201).json({ 
             id: result.id, 
             message: 'Real estate added successfully',
-            // ✅ إرجاع مسار كامل لصورة الغلاف
             coverImageUrl: buildRealEstateFileUrl(coverImage),
-            filesCount: files.length
+            filesCount: files.length,
+            companyId: parseInt(finalCompanyId) // ✅ إضافة companyId للاستجابة
         });
     } catch (error) {
         console.error('Error adding real estate:', error);
@@ -356,6 +402,38 @@ const addRealEstate = async (req, res) => {
     }
 };
 
+const getMyProperties = async (req, res) => {
+  try {
+    const prisma = dbManager.getPrisma();
+    
+    const realEstates = await prisma.realEstate.findMany({
+      where: { companyId: req.user.id },
+      include: {
+        city: { select: { name: true } },
+        neighborhood: { select: { name: true } },
+        finalType: { select: { name: true } },
+        building: { select: { title: true } },
+        buildingItem: { select: { name: true } },
+        files: { select: { name: true } },
+        _count: {
+          select: { Reservation: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const formattedRealEstates = realEstates.map(realEstate => ({
+      ...realEstate,
+      coverImage: buildRealEstateFileUrl(realEstate.coverImage),
+      files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
+      reservationsCount: realEstate._count.Reservation
+    }));
+    
+    res.json(formattedRealEstates);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 // Update real estate
 const updateRealEstate = async (req, res) => {
     try {
@@ -786,5 +864,6 @@ module.exports = {
     getRealEstateSimilar,
     deleteFile: deleteFileFromDB, // ✅ إصلاح التضارب
     filter,
+    getMyProperties,
     upload
 };

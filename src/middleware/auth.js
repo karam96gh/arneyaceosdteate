@@ -1,4 +1,3 @@
-// src/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const { dbManager } = require('../config/database');
 
@@ -31,10 +30,9 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    // ✅ تحويل role للاستخدام في التحقق من الصلاحيات
     req.user = {
       ...user,
-      role: user.role.toLowerCase() // تحويل من ADMIN إلى admin
+      role: user.role.toLowerCase()
     };
     
     next();
@@ -57,7 +55,6 @@ const requireRole = (roles) => {
       });
     }
 
-    // ✅ التحقق من الدور (سيكون مُحوَّل بالفعل من middleware السابق)
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
@@ -72,7 +69,88 @@ const requireRole = (roles) => {
   };
 };
 
-// التحقق من ملكية المورد
+// ✅ إضافة middleware للتحقق من ملكية العقار
+const requirePropertyOwnership = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const prisma = dbManager.getPrisma();
+    
+    const realEstate = await prisma.realEstate.findUnique({
+      where: { id: parseInt(id) },
+      select: { companyId: true }
+    });
+
+    if (!realEstate) {
+      return res.status(404).json({ message: 'Real estate not found' });
+    }
+
+    if (req.user.role === 'admin') return next();
+    
+    if (req.user.role === 'company' && realEstate.companyId === req.user.id) {
+      return next();
+    }
+
+    return res.status(403).json({ message: 'Access denied to property' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ إضافة middleware للتحقق من ملكية المبنى
+const requireBuildingOwnership = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const prisma = dbManager.getPrisma();
+    
+    const building = await prisma.building.findUnique({
+      where: { id: id },
+      select: { companyId: true }
+    });
+
+    if (!building) {
+      return res.status(404).json({ message: 'Building not found' });
+    }
+
+    if (req.user.role === 'admin') return next();
+    
+    if (req.user.role === 'company' && building.companyId === req.user.id) {
+      return next();
+    }
+
+    return res.status(403).json({ message: 'Access denied to building' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ إضافة middleware للتحقق من ملكية عنصر المبنى
+const requireBuildingItemOwnership = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const prisma = dbManager.getPrisma();
+    
+    const buildingItem = await prisma.buildingItem.findUnique({
+      where: { id: id },
+      select: { companyId: true }
+    });
+
+    if (!buildingItem) {
+      return res.status(404).json({ message: 'Building item not found' });
+    }
+
+    if (req.user.role === 'admin') return next();
+    
+    if (req.user.role === 'company' && buildingItem.companyId === req.user.id) {
+      return next();
+    }
+
+    return res.status(403).json({ message: 'Access denied to building item' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// التحقق من ملكية المورد حسب النوع الموجود
 const requireOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -92,15 +170,12 @@ const requireOwnership = async (req, res, next) => {
         });
       }
 
-      // المدير يمكنه الوصول لكل شيء
       if (req.user.role === 'admin') return next();
       
-      // المستخدم يمكنه الوصول لحجوزاته فقط
       if (req.user.role === 'user' || req.user.role === 'user_vip') {
         if (reservation.userId === req.user.id) return next();
       }
       
-      // الشركة يمكنها الوصول لحجوزات عقاراتها
       if (req.user.role === 'company') {
         if (reservation.companyId === req.user.id) return next();
       }
@@ -121,4 +196,11 @@ const requireOwnership = async (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth, requireRole, requireOwnership };
+module.exports = { 
+  requireAuth, 
+  requireRole, 
+  requireOwnership,
+  requirePropertyOwnership,
+  requireBuildingOwnership,
+  requireBuildingItemOwnership
+};

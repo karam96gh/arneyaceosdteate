@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -85,20 +82,24 @@ model FinalType {
   @@map("finaltype")
 }
 
+// ✅ تعديل Building مع إضافة companyId
 model Building {
   id          String         @id @default(uuid()) @db.Char(36)
   title       String         @db.VarChar(255)
   status      BuildingStatus
   location    String         @default("0.0,0.0") @db.VarChar(250)
   buildingAge String?        @db.VarChar(255)
+  companyId   Int?            // ✅ إضافة حقل الشركة
   items       BuildingItem[]
   realEstates RealEstate[]
+  company     User?           @relation("CompanyBuildings", fields: [companyId], references: [id], onDelete: Cascade)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   @@map("buildings")
 }
 
+// ✅ تعديل BuildingItem مع إضافة companyId
 model BuildingItem {
   id          String           @id @default(uuid()) @db.Char(36)
   name        String           @db.VarChar(255)
@@ -106,7 +107,9 @@ model BuildingItem {
   area        String?          @db.VarChar(50)
   type        BuildingItemType
   buildingId  String?          @map("building_id") @db.Char(36)
+  companyId   Int?              // ✅ إضافة حقل الشركة
   building    Building?        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  company     User?             @relation("CompanyBuildingItems", fields: [companyId], references: [id], onDelete: Cascade)
   realEstates RealEstate[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -114,6 +117,7 @@ model BuildingItem {
   @@map("building_items")
 }
 
+// ✅ تعديل RealEstate مع إضافة companyId
 model RealEstate {
   id             Int       @id @default(autoincrement())
   cityId         Int
@@ -127,6 +131,7 @@ model RealEstate {
   finalTypeId    Int
   buildingId     String?   @db.Char(36)
   buildingItemId String?   @db.Char(36)
+  companyId      Int?       // ✅ إضافة حقل الشركة
   location       String?   @db.VarChar(50)
   viewTime       String?   @db.VarChar(255)
   description    String?   @db.VarChar(1000)
@@ -147,6 +152,7 @@ model RealEstate {
   finalCity      FinalCity?      @relation(fields: [finalCityId], references: [id], onDelete: Cascade)
   building       Building?       @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   buildingItem   BuildingItem?   @relation(fields: [buildingItemId], references: [id], onDelete: SetNull)
+  company        User?           @relation("CompanyRealEstates", fields: [companyId], references: [id], onDelete: Cascade)
   files          File[]
   propertyValues PropertyValue[]
   Reservation    Reservation[]
@@ -202,8 +208,7 @@ model PropertyValue {
   @@map("property_values")
 }
 
-// إضافة إلى schema.prisma
-
+// ✅ تعديل User مع إضافة العلاقات الجديدة
 model User {
   id             Int       @id @default(autoincrement())
   username       String    @unique @db.VarChar(50)
@@ -222,6 +227,9 @@ model User {
   // Relations
   reservations        Reservation[]
   companyReservations Reservation[] @relation("CompanyReservations")
+  companyRealEstates  RealEstate[]  @relation("CompanyRealEstates")     // ✅ إضافة علاقة العقارات
+  companyBuildings    Building[]    @relation("CompanyBuildings")       // ✅ إضافة علاقة المباني
+  companyBuildingItems BuildingItem[] @relation("CompanyBuildingItems") // ✅ إضافة علاقة عناصر المباني
 
   @@map("users")
 }
@@ -260,10 +268,9 @@ enum ReservationStatus {
   COMPLETED @map("completed")
 }
 
-// ✅ ENUMs مُصححة
 enum BuildingStatus {
   COMPLETED          @map("مكتمل")
-  UNDER_CONSTRUCTION @map("قيد_الإنشاء") // إصلاح: استبدال المسافة بـ underscore
+  UNDER_CONSTRUCTION @map("قيد_الإنشاء")
   PLANNED            @map("مخطط")
 }
 
