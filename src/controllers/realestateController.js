@@ -29,14 +29,7 @@ const getAllRealEstate = async (req, res) => {
                 building: { select: { id: true, title: true, status: true } },
                 buildingItem: { select: { id: true, name: true, type: true } },
                 // ✅ إضافة معلومات الشركة
-                user: { 
-                    select: { 
-                        id: true, 
-                        companyName: true, 
-                        phone: true,
-                        email: true
-                    } 
-                },
+               
                 files: { select: { id: true, name: true } },
                 propertyValues: {
                     include: {
