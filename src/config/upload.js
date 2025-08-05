@@ -102,7 +102,7 @@ const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1
     });
     
     // ✅ إضافة middleware للحفاظ على req.user
-    return (req, res, next) => {
+    const wrapper = (req, res, next) => {
         console.log('📁 Multer middleware called');
         console.log('User before multer:', req.user);
         
@@ -120,6 +120,15 @@ const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1
             next();
         });
     };
+    
+    // ✅ إضافة methods من multer instance إلى wrapper
+    wrapper.fields = multerInstance.fields.bind(multerInstance);
+    wrapper.single = multerInstance.single.bind(multerInstance);
+    wrapper.array = multerInstance.array.bind(multerInstance);
+    wrapper.any = multerInstance.any.bind(multerInstance);
+    wrapper.none = multerInstance.none.bind(multerInstance);
+    
+    return wrapper;
 };
 
 // ✅ Middleware للأنواع المختلفة
