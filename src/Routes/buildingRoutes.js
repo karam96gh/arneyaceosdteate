@@ -1,7 +1,7 @@
 const express = require('express');
 const { getBuildings, getBuildingById, createBuilding, updateBuilding,getMyBuildings, deleteBuilding } = require('../controllers/buildingController');
 const { getBuildingItems, createBuildingItem, updateBuildingItem, deleteBuildingItem } = require('../controllers/buildingItemController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole ,requireBuildingItemOwnership} = require('../middleware/auth');
 
 const router = express.Router();
 

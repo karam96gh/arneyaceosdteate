@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const realestateController = require('../controllers/realestateController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole,requirePropertyOwnership } = require('../middleware/auth');
 
 router.get('/', realestateController.getAllRealEstate);
 router.get('/:id', realestateController.getRealEstateById);
