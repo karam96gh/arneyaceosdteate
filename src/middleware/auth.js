@@ -29,7 +29,7 @@ const requireAuth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const prisma = dbManager.getPrisma();
-    
+    req.user = decoded; // Set req.user with decoded token
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { 
