@@ -1,9 +1,21 @@
+// src/middleware/auth.js - FIXED VERSION
 const jwt = require('jsonwebtoken');
 const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// التحقق من الـ token
+// ✅ دالة مساعدة لتحويل enum إلى role
+const enumToRole = (enumValue) => {
+  const mapping = {
+    'USER': 'user',
+    'USER_VIP': 'user_vip',
+    'ADMIN': 'admin', 
+    'COMPANY': 'company'
+  };
+  return mapping[enumValue] || enumValue?.toLowerCase();
+};
+
+// التحقق من الـ token - FIXED
 const requireAuth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -20,7 +32,13 @@ const requireAuth = async (req, res, next) => {
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, username: true, role: true, isActive: true }
+      select: { 
+        id: true, 
+        username: true, 
+        role: true, 
+        isActive: true,
+        companyName: true // ✅ إضافة معلومات الشركة
+      }
     });
 
     if (!user || !user.isActive) {
@@ -30,9 +48,11 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
+    // ✅ تحويل role وإضافة معلومات إضافية
     req.user = {
       ...user,
-      role: user.role.toLowerCase()
+      role: enumToRole(user.role), // ✅ تحويل للاستخدام
+      isCompany: user.role === 'COMPANY'
     };
     
     next();
@@ -45,7 +65,7 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-// التحقق من الدور
+// التحقق من الدور - FIXED
 const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -55,7 +75,10 @@ const requireRole = (roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    // ✅ تحويل الأدوار المطلوبة إلى lowercase للمقارنة
+    const normalizedRoles = roles.map(role => role.toLowerCase());
+    
+    if (!normalizedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         error: { 
@@ -69,98 +92,194 @@ const requireRole = (roles) => {
   };
 };
 
-// ✅ إضافة middleware للتحقق من ملكية العقار
+// ✅ التحقق من ملكية العقار - FIXED
 const requirePropertyOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        message: 'Invalid property ID' 
+      });
+    }
+    
     const prisma = dbManager.getPrisma();
     
     const realEstate = await prisma.realEstate.findUnique({
       where: { id: parseInt(id) },
-      select: { companyId: true }
+      select: { 
+        companyId: true,
+        title: true // للـ debugging
+      }
     });
 
     if (!realEstate) {
       return res.status(404).json({ message: 'Real estate not found' });
     }
 
-    if (req.user.role === 'admin') return next();
+    // المدير يمكنه الوصول لكل شيء
+    if (req.user.role === 'admin') {
+      return next();
+    }
     
+    // الشركة تصل فقط لعقاراتها
     if (req.user.role === 'company' && realEstate.companyId === req.user.id) {
       return next();
     }
 
-    return res.status(403).json({ message: 'Access denied to property' });
+    return res.status(403).json({ 
+      message: 'Access denied to this property',
+      debug: process.env.NODE_ENV === 'development' ? {
+        userRole: req.user.role,
+        userId: req.user.id,
+        propertyCompanyId: realEstate.companyId
+      } : undefined
+    });
   } catch (error) {
+    console.error('Property ownership middleware error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// ✅ إضافة middleware للتحقق من ملكية المبنى
+// ✅ التحقق من ملكية المبنى - FIXED
 const requireBuildingOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ 
+        message: 'Invalid building ID' 
+      });
+    }
+    
     const prisma = dbManager.getPrisma();
     
     const building = await prisma.building.findUnique({
-      where: { id: id },
-      select: { companyId: true }
+      where: { id: id }, // UUID string
+      select: { 
+        companyId: true,
+        title: true // للـ debugging
+      }
     });
 
     if (!building) {
       return res.status(404).json({ message: 'Building not found' });
     }
 
-    if (req.user.role === 'admin') return next();
+    // المدير يمكنه الوصول لكل شيء
+    if (req.user.role === 'admin') {
+      return next();
+    }
     
+    // الشركة تصل فقط لمبانيها
     if (req.user.role === 'company' && building.companyId === req.user.id) {
       return next();
     }
 
-    return res.status(403).json({ message: 'Access denied to building' });
+    return res.status(403).json({ 
+      message: 'Access denied to this building',
+      debug: process.env.NODE_ENV === 'development' ? {
+        userRole: req.user.role,
+        userId: req.user.id,
+        buildingCompanyId: building.companyId
+      } : undefined
+    });
   } catch (error) {
+    console.error('Building ownership middleware error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// ✅ إضافة middleware للتحقق من ملكية عنصر المبنى
+// ✅ التحقق من ملكية عنصر المبنى - FIXED
 const requireBuildingItemOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ 
+        message: 'Invalid building item ID' 
+      });
+    }
+    
     const prisma = dbManager.getPrisma();
     
     const buildingItem = await prisma.buildingItem.findUnique({
-      where: { id: id },
-      select: { companyId: true }
+      where: { id: id }, // UUID string
+      select: { 
+        companyId: true,
+        name: true, // للـ debugging
+        building: {
+          select: {
+            companyId: true,
+            title: true
+          }
+        }
+      }
     });
 
     if (!buildingItem) {
       return res.status(404).json({ message: 'Building item not found' });
     }
 
-    if (req.user.role === 'admin') return next();
-    
-    if (req.user.role === 'company' && buildingItem.companyId === req.user.id) {
+    // المدير يمكنه الوصول لكل شيء
+    if (req.user.role === 'admin') {
       return next();
     }
+    
+    // الشركة تصل فقط لعناصر مبانيها
+    if (req.user.role === 'company') {
+      // التحقق من ملكية العنصر مباشرة أو من خلال المبنى
+      const isOwner = buildingItem.companyId === req.user.id || 
+                     buildingItem.building?.companyId === req.user.id;
+      
+      if (isOwner) {
+        return next();
+      }
+    }
 
-    return res.status(403).json({ message: 'Access denied to building item' });
+    return res.status(403).json({ 
+      message: 'Access denied to this building item',
+      debug: process.env.NODE_ENV === 'development' ? {
+        userRole: req.user.role,
+        userId: req.user.id,
+        itemCompanyId: buildingItem.companyId,
+        buildingCompanyId: buildingItem.building?.companyId
+      } : undefined
+    });
   } catch (error) {
+    console.error('Building item ownership middleware error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// التحقق من ملكية المورد حسب النوع الموجود
+// التحقق من ملكية المورد حسب النوع الموجود - FIXED
 const requireOwnership = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_ID', message: 'Invalid ID parameter' }
+      });
+    }
+    
     const prisma = dbManager.getPrisma();
     
     // للحجوزات
     if (req.baseUrl.includes('reservations')) {
       const reservation = await prisma.reservation.findUnique({
         where: { id: parseInt(id) },
-        select: { userId: true, companyId: true }
+        select: { 
+          userId: true, 
+          companyId: true,
+          property: {
+            select: {
+              title: true,
+              companyId: true
+            }
+          }
+        }
       });
 
       if (!reservation) {
@@ -170,19 +289,36 @@ const requireOwnership = async (req, res, next) => {
         });
       }
 
-      if (req.user.role === 'admin') return next();
-      
-      if (req.user.role === 'user' || req.user.role === 'user_vip') {
-        if (reservation.userId === req.user.id) return next();
+      // المدير يمكنه الوصول لكل شيء
+      if (req.user.role === 'admin') {
+        return next();
       }
       
+      // المستخدم العادي يصل لحجوزاته فقط
+      if ((req.user.role === 'user' || req.user.role === 'user_vip') && 
+          reservation.userId === req.user.id) {
+        return next();
+      }
+      
+      // الشركة تصل للحجوزات المرتبطة بها أو بعقاراتها
       if (req.user.role === 'company') {
-        if (reservation.companyId === req.user.id) return next();
+        const hasAccess = reservation.companyId === req.user.id || 
+                         reservation.property?.companyId === req.user.id;
+        if (hasAccess) {
+          return next();
+        }
       }
 
       return res.status(403).json({
         success: false,
-        error: { code: 'ACCESS_DENIED', message: 'Access denied' }
+        error: { code: 'ACCESS_DENIED', message: 'Access denied' },
+        debug: process.env.NODE_ENV === 'development' ? {
+          userRole: req.user.role,
+          userId: req.user.id,
+          reservationUserId: reservation.userId,
+          reservationCompanyId: reservation.companyId,
+          propertyCompanyId: reservation.property?.companyId
+        } : undefined
       });
     }
 
