@@ -109,105 +109,7 @@ const getAllRealEstate = async (req, res) => {
 };
 
 // Get real estate by ID
-const getRealEstateById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const prisma = dbManager.getPrisma();
-        
-        const realEstate = await prisma.realEstate.findUnique({
-            where: { id: parseInt(id) },
-            include: {
-                city: { select: { id: true, name: true } },
-                neighborhood: { select: { id: true, name: true } },
-                mainCategory: { select: { id: true, name: true } },
-                subCategory: { select: { id: true, name: true } },
-                finalType: { select: { id: true, name: true } },
-                finalCity: { select: { id: true, name: true } },
-                building: { select: { id: true, title: true, status: true, location: true } },
-                buildingItem: { 
-                    select: { 
-                        id: true, 
-                        name: true, 
-                        type: true, 
-                        price: true, 
-                        area: true,
-                        building: { select: { title: true, status: true } }
-                    } 
-                },
-                files: { select: { id: true, name: true } },
-                propertyValues: {
-                    include: {
-                        property: {
-                            select: {
-                                id: true,
-                                propertyKey: true,
-                                propertyName: true,
-                                dataType: true,
-                                unit: true,
-                                groupName: true
-                            }
-                        }
-                    }
-                }
-            }
-        });
 
-        if (!realEstate) {
-            return res.status(404).json({ message: 'Real estate not found' });
-        }
-
-        // تنسيق البيانات مع تفاصيل أكثر
-        const propertyValuesObj = {};
-        realEstate.propertyValues.forEach(pv => {
-            propertyValuesObj[pv.property.propertyKey] = {
-                value: pv.value,
-                property: pv.property
-            };
-        });
-
-        const formattedData = {
-            id: realEstate.id,
-            description: realEstate.description,
-            finalCityId: realEstate.finalCityId,
-            createdAt: realEstate.createdAt,
-            cityName: realEstate.city.name,
-            neighborhoodName: realEstate.neighborhood.name,
-            mainCategoryName: realEstate.mainCategory.name,
-            finalCityName: realEstate.finalCity?.name,
-            subCategoryName: realEstate.subCategory.name,
-            finalTypeName: realEstate.finalType.name,
-            buildingInfo: realEstate.building,
-            buildingItemInfo: realEstate.buildingItem,
-            cityId: realEstate.cityId,
-            viewTime: realEstate.viewTime,
-            neighborhoodId: realEstate.neighborhoodId,
-            price: realEstate.price,
-            title: realEstate.title,
-            paymentMethod: realEstate.paymentMethod,
-            mainCategoryId: realEstate.mainCategoryId,
-            subCategoryId: realEstate.subCategoryId,
-             advertiserType: realEstate.advertiserType || "user",
-               advertiserName: realEstate.advertiserName || "",
-               advertiserPhone: realEstate.advertiserPhone || "",
-               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
-            // ✅ تحويل coverImage إلى مسار كامل
-            coverImage: buildRealEstateFileUrl(realEstate.coverImage),
-            finalTypeId: realEstate.finalTypeId,
-            buildingId: realEstate.buildingId,
-            buildingItemId: realEstate.buildingItemId,
-            location: realEstate.location,
-            // ✅ تحويل files إلى مسارات كاملة
-            files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
-            properties: propertyValuesObj,
-            others: realEstate.others ? JSON.parse(realEstate.others) : null
-        };
-
-        res.status(200).json(formattedData);
-    } catch (error) {
-        console.error('Error in getRealEstateById:', error);
-        res.status(500).json({ error: error.message });
-    }
-};
 
 // Add a new real estate listing
 const addRealEstate = async (req, res) => {
@@ -426,165 +328,34 @@ const getMyProperties = async (req, res) => {
   }
 };
 // Update real estate
-const updateRealEstate = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { properties, files: newFiles, ...updateData } = req.body;
 
-        // إزالة القيم غير المحددة
-        Object.keys(updateData).forEach(key => {
-            if (updateData[key] === undefined || updateData[key] === '') {
-                delete updateData[key];
-            }
-        });
-
-        // تحويل القيم الرقمية
-        ['price', 'cityId', 'neighborhoodId', 'mainCategoryId', 'subCategoryId', 
-         'finalTypeId', 'finalCityId'].forEach(field => {
-            if (field in updateData && updateData[field] !== null) {
-                updateData[field] = parseInt(updateData[field]);
-            }
-        });
-
-        const prisma = dbManager.getPrisma();
-
-        // تحديث داخل transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // تحديث بيانات العقار الأساسية
-            let updatedRealEstate = null;
-            if (Object.keys(updateData).length > 0) {
-                updatedRealEstate = await tx.realEstate.update({
-                    where: { id: parseInt(id) },
-                    data: updateData
-                });
-            }
-
-            // تحديث الملفات إذا تم تمرير ملفات جديدة
-            if (newFiles && Array.isArray(newFiles) && newFiles.length > 0) {
-                // حذف الملفات القديمة أولاً
-                await tx.file.deleteMany({
-                    where: { realestateId: parseInt(id) }
-                });
-
-                // إضافة الملفات الجديدة
-                await tx.file.createMany({
-                    data: newFiles.map(fileName => ({
-                        name: fileName,
-                        realestateId: parseInt(id)
-                    }))
-                });
-            }
-
-            // تحديث قيم الخصائص إذا تم تمريرها
-            if (properties && typeof properties === 'object') {
-                // الحصول على نوع العقار النهائي
-                const realEstate = await tx.realEstate.findUnique({
-                    where: { id: parseInt(id) },
-                    select: { finalTypeId: true }
-                });
-
-                if (realEstate) {
-                    // حذف قيم الخصائص القديمة
-                    await tx.propertyValue.deleteMany({
-                        where: { realEstateId: parseInt(id) }
-                    });
-
-                    // إضافة قيم الخصائص الجديدة
-                    const propertyValues = [];
-                    for (const [propertyKey, value] of Object.entries(properties)) {
-                        if (value !== null && value !== undefined && value !== '') {
-                            const property = await tx.property.findFirst({
-                                where: {
-                                    propertyKey,
-                                    finalTypeId: realEstate.finalTypeId
-                                }
-                            });
-
-                            if (property) {
-                                propertyValues.push({
-                                    realEstateId: parseInt(id),
-                                    propertyId: property.id,
-                                    value: typeof value === 'object' ? JSON.stringify(value) : String(value)
-                                });
-                            }
-                        }
-                    }
-
-                    if (propertyValues.length > 0) {
-                        await tx.propertyValue.createMany({
-                            data: propertyValues
-                        });
-                    }
-                }
-            }
-
-            return updatedRealEstate;
-        });
-
-        res.status(200).json({ 
-            message: 'Real estate updated successfully',
-            updated: result ? true : false
-        });
-    } catch (error) {
-        console.error('Error updating real estate:', error);
-        if (error.code === 'P2025') {
-            return res.status(404).json({ message: 'Real estate not found' });
-        }
-        res.status(500).json({ error: error.message });
-    }
-};
 
 // Delete real estate
-const deleteRealEstate = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const prisma = dbManager.getPrisma();
 
-        // الحصول على معلومات العقار والملفات قبل الحذف
-        const realEstate = await prisma.realEstate.findUnique({
-            where: { id: parseInt(id) },
-            include: { files: true }
-        });
-
-        if (!realEstate) {
-            return res.status(404).json({ message: 'Real estate not found' });
-        }
-
-        // حذف العقار (سيحذف الملفات وقيم الخصائص تلقائياً بسبب cascade)
-        await prisma.realEstate.delete({
-            where: { id: parseInt(id) }
-        });
-
-        // حذف الملفات الفعلية من النظام
-        if (realEstate.coverImage) {
-            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
-        }
-
-        realEstate.files.forEach(file => {
-            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, file.name));
-        });
-
-        res.status(200).json({ 
-            message: 'Real estate deleted successfully',
-            deletedFilesCount: realEstate.files.length + (realEstate.coverImage ? 1 : 0)
-        });
-    } catch (error) {
-        console.error('Error deleting real estate:', error);
-        if (error.code === 'P2025') {
-            return res.status(404).json({ message: 'Real estate not found' });
-        }
-        res.status(500).json({ error: error.message });
-    }
-};
 
 // Get real estate by building item ID
+
+
+// Get similar real estate
+// ✅ FIXED FUNCTIONS FOR realestateController.js
+
+// Get real estate by building item ID - FIXED VERSION
 const getRealEstateByBuildingItemId = async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // ✅ التحقق من صحة المعامل
+        if (!id) {
+            return res.status(400).json({ 
+                error: 'Missing ID parameter',
+                message: 'Building item ID is required' 
+            });
+        }
+
         const prisma = dbManager.getPrisma();
         
         const realEstates = await prisma.realEstate.findMany({
-            where: { buildingItemId: id },
+            where: { buildingItemId: id }, // String ID (UUID)
             include: {
                 city: { select: { id: true, name: true } },
                 neighborhood: { select: { id: true, name: true } },
@@ -594,6 +365,7 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 finalCity: { select: { id: true, name: true } },
                 building: { select: { id: true, title: true, status: true } },
                 buildingItem: { select: { id: true, name: true, type: true } },
+             
                 files: { select: { id: true, name: true } },
                 propertyValues: {
                     include: {
@@ -641,7 +413,8 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 finalTypeName: realEstate.finalType.name,
                 buildingName: realEstate.building?.title,
                 buildingItemName: realEstate.buildingItem?.name,
-                cityId: realEstate.cityId,
+ companyId: realEstate.companyId,
+                companyName:realEstate.companyName,                cityId: realEstate.cityId,
                 viewTime: realEstate.viewTime,
                 neighborhoodId: realEstate.neighborhoodId,
                 price: realEstate.price,
@@ -649,17 +422,15 @@ const getRealEstateByBuildingItemId = async (req, res) => {
                 paymentMethod: realEstate.paymentMethod,
                 mainCategoryId: realEstate.mainCategoryId,
                 subCategoryId: realEstate.subCategoryId,
-                 advertiserType: realEstate.advertiserType || "user",
-               advertiserName: realEstate.advertiserName || "",
-               advertiserPhone: realEstate.advertiserPhone || "",
-               advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
-                // ✅ تحويل coverImage إلى مسار كامل
+                advertiserType: realEstate.advertiserType || "user",
+                advertiserName: realEstate.advertiserName || "",
+                advertiserPhone: realEstate.advertiserPhone || "",
+                advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
                 coverImage: buildRealEstateFileUrl(realEstate.coverImage),
                 finalTypeId: realEstate.finalTypeId,
                 buildingId: realEstate.buildingId,
                 buildingItemId: realEstate.buildingItemId,
                 location: realEstate.location,
-                // ✅ تحويل files إلى مسارات كاملة
                 files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
                 properties: propertyValuesObj,
                 others: realEstate.others ? JSON.parse(realEstate.others) : null
@@ -677,15 +448,24 @@ const getRealEstateByBuildingItemId = async (req, res) => {
     }
 };
 
-// Get similar real estate
+// Get similar real estate - FIXED VERSION
 const getRealEstateSimilar = async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // ✅ التحقق من صحة المعامل
+        if (!id || isNaN(parseInt(id))) {
+            return res.status(400).json({ 
+                error: 'Invalid or missing ID parameter',
+                message: 'ID must be a valid number' 
+            });
+        }
+
         const prisma = dbManager.getPrisma();
 
         // الحصول على تفاصيل العقار الحالي
         const realEstate = await prisma.realEstate.findUnique({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(id) }, // ✅ تحويل إلى رقم
             select: { 
                 mainCategoryId: true, 
                 subCategoryId: true, 
@@ -700,18 +480,15 @@ const getRealEstateSimilar = async (req, res) => {
             return res.status(404).json({ message: 'Real estate not found' });
         }
 
-        // البحث عن عقارات مشابهة مع نظام scoring
+        // البحث عن عقارات مشابهة
         const similarRealEstates = await prisma.realEstate.findMany({
             where: {
                 AND: [
-                    { id: { not: parseInt(id) } },
+                    { id: { not: parseInt(id) } }, // ✅ استبعاد العقار الحالي
                     {
                         OR: [
-                            // نفس النوع النهائي (أولوية عالية)
                             { finalTypeId: realEstate.finalTypeId },
-                            // نفس النوع الفرعي (أولوية متوسطة)
                             { subCategoryId: realEstate.subCategoryId },
-                            // نفس النوع الرئيسي (أولوية منخفضة)
                             { mainCategoryId: realEstate.mainCategoryId }
                         ]
                     }
@@ -724,40 +501,33 @@ const getRealEstateSimilar = async (req, res) => {
                 subCategory: { select: { id: true, name: true } },
                 finalType: { select: { id: true, name: true } },
                 finalCity: { select: { id: true, name: true } },
+               
                 files: { select: { id: true, name: true } }
             },
-            take: 20 // نأخذ 20 ونرتبهم بـ scoring
+            take: 20
         });
 
         // ترتيب حسب التشابه
         const scoredResults = similarRealEstates.map(item => {
             let score = 0;
             
-            // نفس النوع النهائي (+30 نقطة)
             if (item.finalTypeId === realEstate.finalTypeId) score += 30;
-            // نفس النوع الفرعي (+20 نقطة)
             if (item.subCategoryId === realEstate.subCategoryId) score += 20;
-            // نفس النوع الرئيسي (+10 نقاط)
             if (item.mainCategoryId === realEstate.mainCategoryId) score += 10;
-            // نفس المدينة (+15 نقطة)
             if (item.cityId === realEstate.cityId) score += 15;
-            // نفس الحي (+10 نقاط)
             if (item.neighborhoodId === realEstate.neighborhoodId) score += 10;
-            // سعر مقارب (+5 نقاط إذا الفرق أقل من 20%)
+            
             const priceDiff = Math.abs(item.price - realEstate.price) / realEstate.price;
             if (priceDiff < 0.2) score += 5;
 
             return { 
                 ...item, 
-                // ✅ تحويل coverImage إلى مسار كامل
                 coverImage: buildRealEstateFileUrl(item.coverImage),
-                // ✅ تحويل files إلى مسارات كاملة  
                 files: item.files.map(f => buildRealEstateFileUrl(f.name)),
                 similarityScore: score 
             };
         });
 
-        // ترتيب حسب النقاط ثم التاريخ
         const sortedResults = scoredResults
             .sort((a, b) => {
                 if (b.similarityScore !== a.similarityScore) {
@@ -765,7 +535,7 @@ const getRealEstateSimilar = async (req, res) => {
                 }
                 return new Date(b.createdAt) - new Date(a.createdAt);
             })
-            .slice(0, 10); // أفضل 10 نتائج
+            .slice(0, 10);
 
         res.status(200).json({
             message: `Found ${sortedResults.length} similar properties`,
@@ -775,6 +545,309 @@ const getRealEstateSimilar = async (req, res) => {
     } catch (error) {
         console.error('Error in getRealEstateSimilar:', error);
         res.status(500).json({ error: error.message });
+    }
+};
+
+// Delete real estate - FIXED VERSION
+const deleteRealEstate = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // ✅ التحقق من صحة المعامل
+        if (!id || isNaN(parseInt(id))) {
+            return res.status(400).json({ 
+                error: 'Invalid or missing ID parameter',
+                message: 'ID must be a valid number' 
+            });
+        }
+
+        const prisma = dbManager.getPrisma();
+
+        // الحصول على معلومات العقار والملفات قبل الحذف
+        const realEstate = await prisma.realEstate.findUnique({
+            where: { id: parseInt(id) }, // ✅ تحويل إلى رقم
+            include: { files: true }
+        });
+
+        if (!realEstate) {
+            return res.status(404).json({ message: 'Real estate not found' });
+        }
+
+        // حذف العقار
+        await prisma.realEstate.delete({
+            where: { id: parseInt(id) } // ✅ تحويل إلى رقم
+        });
+
+        // حذف الملفات الفعلية من النظام
+        if (realEstate.coverImage) {
+            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, realEstate.coverImage));
+        }
+
+        realEstate.files.forEach(file => {
+            deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, file.name));
+        });
+
+        res.status(200).json({ 
+            message: 'Real estate deleted successfully',
+            deletedFilesCount: realEstate.files.length + (realEstate.coverImage ? 1 : 0)
+        });
+    } catch (error) {
+        console.error('Error deleting real estate:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ message: 'Real estate not found' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Update real estate - FIXED VERSION
+const updateRealEstate = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // ✅ التحقق من صحة المعامل
+        if (!id || isNaN(parseInt(id))) {
+            return res.status(400).json({ 
+                error: 'Invalid or missing ID parameter',
+                message: 'ID must be a valid number' 
+            });
+        }
+
+        const { properties, files: newFiles, ...updateData } = req.body;
+
+        // إزالة القيم غير المحددة
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key] === undefined || updateData[key] === '') {
+                delete updateData[key];
+            }
+        });
+
+        // تحويل القيم الرقمية
+        ['price', 'cityId', 'neighborhoodId', 'mainCategoryId', 'subCategoryId', 
+         'finalTypeId', 'finalCityId'].forEach(field => {
+            if (field in updateData && updateData[field] !== null) {
+                updateData[field] = parseInt(updateData[field]);
+            }
+        });
+
+        const prisma = dbManager.getPrisma();
+
+        // تحديث داخل transaction
+        const result = await prisma.$transaction(async (tx) => {
+            let updatedRealEstate = null;
+            if (Object.keys(updateData).length > 0) {
+                updatedRealEstate = await tx.realEstate.update({
+                    where: { id: parseInt(id) }, // ✅ تحويل إلى رقم
+                    data: updateData
+                });
+            }
+
+            // تحديث الملفات إذا تم تمرير ملفات جديدة
+            if (newFiles && Array.isArray(newFiles) && newFiles.length > 0) {
+                await tx.file.deleteMany({
+                    where: { realestateId: parseInt(id) } // ✅ تحويل إلى رقم
+                });
+
+                await tx.file.createMany({
+                    data: newFiles.map(fileName => ({
+                        name: fileName,
+                        realestateId: parseInt(id) // ✅ تحويل إلى رقم
+                    }))
+                });
+            }
+
+            // تحديث قيم الخصائص
+            if (properties && typeof properties === 'object') {
+                const realEstate = await tx.realEstate.findUnique({
+                    where: { id: parseInt(id) }, // ✅ تحويل إلى رقم
+                    select: { finalTypeId: true }
+                });
+
+                if (realEstate) {
+                    await tx.propertyValue.deleteMany({
+                        where: { realEstateId: parseInt(id) } // ✅ تحويل إلى رقم
+                    });
+
+                    const propertyValues = [];
+                    for (const [propertyKey, value] of Object.entries(properties)) {
+                        if (value !== null && value !== undefined && value !== '') {
+                            const property = await tx.property.findFirst({
+                                where: {
+                                    propertyKey,
+                                    finalTypeId: realEstate.finalTypeId
+                                }
+                            });
+
+                            if (property) {
+                                propertyValues.push({
+                                    realEstateId: parseInt(id), // ✅ تحويل إلى رقم
+                                    propertyId: property.id,
+                                    value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+                                });
+                            }
+                        }
+                    }
+
+                    if (propertyValues.length > 0) {
+                        await tx.propertyValue.createMany({
+                            data: propertyValues
+                        });
+                    }
+                }
+            }
+
+            return updatedRealEstate;
+        });
+
+        res.status(200).json({ 
+            message: 'Real estate updated successfully',
+            updated: result ? true : false
+        });
+    } catch (error) {
+        console.error('Error updating real estate:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ message: 'Real estate not found' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get real estate by ID - FIXED VERSION
+const getRealEstateById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // ✅ إضافة التحقق من صحة المعامل
+        if (!id || isNaN(parseInt(id))) {
+            return res.status(400).json({ 
+                error: 'Invalid or missing ID parameter',
+                message: 'ID must be a valid number' 
+            });
+        }
+
+        const prisma = dbManager.getPrisma();
+        
+        const realEstate = await prisma.realEstate.findUnique({
+            where: { 
+                id: parseInt(id) // ✅ التأكد من تحويل ID إلى رقم
+            },
+            include: {
+                city: { select: { id: true, name: true } },
+                neighborhood: { select: { id: true, name: true } },
+                mainCategory: { select: { id: true, name: true } },
+                subCategory: { select: { id: true, name: true } },
+                finalType: { select: { id: true, name: true } },
+                finalCity: { select: { id: true, name: true } },
+                building: { select: { id: true, title: true, status: true, location: true } },
+                buildingItem: { 
+                    select: { 
+                        id: true, 
+                        name: true, 
+                        type: true, 
+                        price: true, 
+                        area: true,
+                        building: { select: { title: true, status: true } }
+                    } 
+                },
+                // ✅ إضافة معلومات الشركة المالكة
+            
+                files: { select: { id: true, name: true } },
+                propertyValues: {
+                    include: {
+                        property: {
+                            select: {
+                                id: true,
+                                propertyKey: true,
+                                propertyName: true,
+                                dataType: true,
+                                unit: true,
+                                groupName: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!realEstate) {
+            return res.status(404).json({ 
+                error: 'Real estate not found',
+                message: `No real estate found with ID: ${id}` 
+            });
+        }
+
+        // تنسيق البيانات مع تفاصيل أكثر
+        const propertyValuesObj = {};
+        realEstate.propertyValues.forEach(pv => {
+            propertyValuesObj[pv.property.propertyKey] = {
+                value: pv.value,
+                property: pv.property
+            };
+        });
+
+        const formattedData = {
+            id: realEstate.id,
+            description: realEstate.description,
+            finalCityId: realEstate.finalCityId,
+            createdAt: realEstate.createdAt,
+            cityName: realEstate.city.name,
+            neighborhoodName: realEstate.neighborhood.name,
+            mainCategoryName: realEstate.mainCategory.name,
+            finalCityName: realEstate.finalCity?.name,
+            subCategoryName: realEstate.subCategory.name,
+            finalTypeName: realEstate.finalType.name,
+            buildingInfo: realEstate.building,
+            buildingItemInfo: realEstate.buildingItem,
+            // ✅ إضافة معلومات الشركة
+ companyId: realEstate.companyId,
+                companyName:realEstate.companyName,
+                            cityId: realEstate.cityId,
+            viewTime: realEstate.viewTime,
+            neighborhoodId: realEstate.neighborhoodId,
+            price: realEstate.price,
+            title: realEstate.title,
+            paymentMethod: realEstate.paymentMethod,
+            mainCategoryId: realEstate.mainCategoryId,
+            subCategoryId: realEstate.subCategoryId,
+            advertiserType: realEstate.advertiserType || "user",
+            advertiserName: realEstate.advertiserName || "",
+            advertiserPhone: realEstate.advertiserPhone || "",
+            advertiserWhatsapp: realEstate.advertiserWhatsapp || "",
+            // ✅ تحويل coverImage إلى مسار كامل
+            coverImage: buildRealEstateFileUrl(realEstate.coverImage),
+            finalTypeId: realEstate.finalTypeId,
+            buildingId: realEstate.buildingId,
+            buildingItemId: realEstate.buildingItemId,
+            location: realEstate.location,
+            // ✅ تحويل files إلى مسارات كاملة
+            files: realEstate.files.map(f => buildRealEstateFileUrl(f.name)),
+            properties: propertyValuesObj,
+            others: realEstate.others ? JSON.parse(realEstate.others) : null
+        };
+
+        res.status(200).json(formattedData);
+    } catch (error) {
+        console.error('Error in getRealEstateById:', error);
+        
+        // معالجة أخطاء Prisma المحددة
+        if (error.code === 'P2025') {
+            return res.status(404).json({ 
+                error: 'Real estate not found',
+                message: 'The requested real estate does not exist' 
+            });
+        }
+        
+        if (error.code === 'P2021') {
+            return res.status(500).json({ 
+                error: 'Database connection error',
+                message: 'Unable to connect to the database' 
+            });
+        }
+
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+        });
     }
 };
 
