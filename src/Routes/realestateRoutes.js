@@ -12,7 +12,6 @@ router.get('/my-properties', requireAuth, requireRole(['company']), realestateCo
 
 router.post('/', 
     requireAuth, 
-    requireRole(['admin', 'company']), 
     realestateController.upload.fields([
         { name: 'coverImage', maxCount: 1 },
         { name: 'files', maxCount: 10 }
