@@ -6,11 +6,6 @@ const path = require('path');
 // ✅ استخدام الـ middleware الموحد
 const upload = uploadMiddlewares.realEstate;
 
-// ✅ إضافة debugging للـ upload middleware
-console.log('📁 Upload middleware type:', typeof upload);
-console.log('📁 Upload middleware has fields method:', typeof upload.fields);
-console.log('📁 Upload middleware object:', Object.keys(upload));
-
 // Get all real estate listings - FIXED
 const getAllRealEstate = async (req, res) => {
     try {
@@ -271,26 +266,6 @@ const getRealEstateById = async (req, res) => {
 // Add a new real estate listing - FIXED
 const addRealEstate = async (req, res) => {
     try {
-        console.log('🏠 addRealEstate function called');
-        console.log('Request method:', req.method);
-        console.log('Request URL:', req.url);
-        console.log('Request headers:', req.headers);
-        
-        // ✅ التحقق من وجود المستخدم
-        if (!req.user) {
-            console.error('❌ User not found in request:', req.user);
-            console.error('Request object keys:', Object.keys(req));
-            console.error('Request body:', req.body);
-            console.error('Request files:', req.files);
-            return res.status(401).json({ 
-                success: false,
-                error: { code: 'NO_USER', message: 'Authentication required' }
-            });
-        }
-
-        console.log('✅ User object found:', req.user);
-        console.log('✅ User role:', req.user.role);
-        console.log('✅ User ID:', req.user.id);
 
         const {
             price, title, cityId, neighborhoodId, paymentMethod, mainCategoryId,

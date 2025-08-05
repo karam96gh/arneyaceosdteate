@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-console.log('🔑 JWT_SECRET configured:', JWT_SECRET ? 'Secret exists' : 'Using default secret');
 
 // ✅ دالة مساعدة لتحويل enum إلى role
 const enumToRole = (enumValue) => {
@@ -19,33 +18,19 @@ const enumToRole = (enumValue) => {
 // التحقق من الـ token - FIXED
 const requireAuth = async (req, res, next) => {
   try {
-    console.log('🔐 Auth middleware called');
-    console.log('Request method:', req.method);
-    console.log('Request URL:', req.url);
-    console.log('Headers:', req.headers);
-    console.log('Authorization header:', req.header('Authorization'));
-    
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
     
-    console.log('Auth header:', authHeader);
-    console.log('Token extracted:', token ? `Token exists (length: ${token.length})` : 'No token');
-    console.log('Token starts with:', token ? token.substring(0, 20) + '...' : 'N/A');
-    
     if (!token) {
-      console.log('❌ No token provided');
       return res.status(401).json({ 
         success: false,
         error: { code: 'NO_TOKEN', message: 'Access token is required' }
       });
     }
 
-    console.log('🔐 Verifying JWT token...');
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Decoded token:', decoded);
     
     const prisma = dbManager.getPrisma();
-    console.log('🔍 Looking for user with ID:', decoded.id);
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -54,11 +39,9 @@ const requireAuth = async (req, res, next) => {
         username: true, 
         role: true, 
         isActive: true,
-        companyName: true // ✅ إضافة معلومات الشركة
+        companyName: true
       }
     });
-
-    console.log('Found user:', user);
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -67,23 +50,14 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    // ✅ تحويل role وإضافة معلومات إضافية
     req.user = {
       ...user,
-      role: enumToRole(user.role), // ✅ تحويل للاستخدام
+      role: enumToRole(user.role),
       isCompany: user.role === 'COMPANY'
     };
     
-    console.log('Final req.user object:', req.user);
     next();
   } catch (error) {
-    console.error('❌ Auth middleware error:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    
     let errorCode = 'TOKEN_ERROR';
     let errorMessage = 'Invalid token';
     
@@ -108,26 +82,16 @@ const requireAuth = async (req, res, next) => {
 // التحقق من الدور - FIXED
 const requireRole = (roles) => {
   return (req, res, next) => {
-    console.log('🔐 requireRole middleware called');
-    console.log('Required roles:', roles);
-    console.log('User object:', req.user);
-    console.log('User role:', req.user?.role);
-    
     if (!req.user) {
-      console.error('❌ No user object in requireRole');
       return res.status(401).json({
         success: false,
         error: { code: 'NO_USER', message: 'Authentication required' }
       });
     }
 
-    // ✅ تحويل الأدوار المطلوبة إلى lowercase للمقارنة
     const normalizedRoles = roles.map(role => role.toLowerCase());
     
     if (!normalizedRoles.includes(req.user.role)) {
-      console.error('❌ Insufficient permissions');
-      console.error('User role:', req.user.role);
-      console.error('Required roles:', normalizedRoles);
       return res.status(403).json({
         success: false,
         error: { 
@@ -137,7 +101,6 @@ const requireRole = (roles) => {
       });
     }
 
-    console.log('✅ Role check passed');
     next();
   };
 };

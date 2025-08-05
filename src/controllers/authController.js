@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const { dbManager } = require('../config/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-console.log('🔑 Auth Controller JWT_SECRET configured:', JWT_SECRET ? 'Secret exists' : 'Using default secret');
 
 // ✅ دوال مساعدة لتحويل الـ roles
 const roleToEnum = (role) => {
@@ -80,14 +79,6 @@ const login = async (req, res) => {
       });
     }
 
-    console.log('🔑 Generating JWT token...');
-    console.log('User data for token:', {
-      id: user.id,
-      username: user.username,
-      role: enumToRole(user.role)
-    });
-    console.log('JWT_SECRET length:', JWT_SECRET.length);
-    
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -97,10 +88,6 @@ const login = async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
-    console.log('✅ Token generated successfully');
-    console.log('Token length:', token.length);
-    console.log('Token starts with:', token.substring(0, 20) + '...');
 
     const { password: _, ...userResponse } = user;
     

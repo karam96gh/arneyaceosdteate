@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ✅ BASE_URL ثابت
-const BASE_URL = 'http://62.171.153.198:4002';
+const BASE_URL = 'http://localhost:4002';
 
 // ✅ تعريف مسارات موحدة
 const UPLOAD_PATHS = {
@@ -92,7 +92,7 @@ const createFileFilter = (allowedTypes) => {
 
 // ✅ إعدادات Multer موحدة
 const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1024) => {
-    const multerInstance = multer({
+    return multer({
         storage: createStorage(uploadType),
         fileFilter: createFileFilter(allowedTypes),
         limits: {
@@ -100,35 +100,6 @@ const createUploadMiddleware = (uploadType, allowedTypes, maxSize = 5 * 1024 * 1
             files: 10 // حد أقصى 10 ملفات
         }
     });
-    
-    // ✅ إضافة middleware للحفاظ على req.user
-    const wrapper = (req, res, next) => {
-        console.log('📁 Multer middleware called');
-        console.log('User before multer:', req.user);
-        
-        multerInstance(req, res, (err) => {
-            if (err) {
-                console.error('❌ Multer error:', err);
-                return next(err);
-            }
-            
-            console.log('✅ Multer completed successfully');
-            console.log('User after multer:', req.user);
-            console.log('Files:', req.files);
-            console.log('Body:', req.body);
-            
-            next();
-        });
-    };
-    
-    // ✅ إضافة methods من multer instance إلى wrapper
-    wrapper.fields = multerInstance.fields.bind(multerInstance);
-    wrapper.single = multerInstance.single.bind(multerInstance);
-    wrapper.array = multerInstance.array.bind(multerInstance);
-    wrapper.any = multerInstance.any.bind(multerInstance);
-    wrapper.none = multerInstance.none.bind(multerInstance);
-    
-    return wrapper;
 };
 
 // ✅ Middleware للأنواع المختلفة
