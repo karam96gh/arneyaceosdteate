@@ -266,6 +266,12 @@ const getRealEstateById = async (req, res) => {
 // Add a new real estate listing - FIXED
 const addRealEstate = async (req, res) => {
     try {
+        // Defensive check for missing req.user
+        if (!req.user) {
+            return res.status(401).json({
+                message: 'Authentication required. User not found in request. Make sure you are sending a valid Authorization token.'
+            });
+        }
 
         const {
             price, title, cityId, neighborhoodId, paymentMethod, mainCategoryId,
