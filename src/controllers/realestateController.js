@@ -16,7 +16,7 @@ const getAllRealEstate = async (req, res) => {
         if (req.user && req.user.role === 'company') {
             whereClause.companyId = req.user.id;
         }
-        
+        console.log("sdds",req.user);
         const realEstates = await prisma.realEstate.findMany({
             where: whereClause,
             include: {
