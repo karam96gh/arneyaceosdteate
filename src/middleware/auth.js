@@ -15,11 +15,32 @@ const enumToRole = (enumValue) => {
   return mapping[enumValue] || enumValue?.toLowerCase();
 };
 
+// التحقق من وجود Authorization header
+const checkAuthHeader = (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'NO_AUTH_HEADER', message: 'Authorization header is required' }
+    });
+  }
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'INVALID_AUTH_FORMAT', message: 'Authorization header must start with Bearer ' }
+    });
+  }
+  next();
+};
+
 // التحقق من الـ token - FIXED
 const requireAuth = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
+    
+    console.log('Auth header:', authHeader);
+    console.log('Token:', token ? 'Present' : 'Missing');
     
     if (!token) {
       return res.status(401).json({ 
@@ -55,6 +76,8 @@ const requireAuth = async (req, res, next) => {
       role: enumToRole(user.role),
       isCompany: user.role === 'COMPANY'
     };
+    
+    console.log('User set in req.user:', req.user);
     
     next();
   } catch (error) {
@@ -351,5 +374,6 @@ module.exports = {
   requireOwnership,
   requirePropertyOwnership,
   requireBuildingOwnership,
-  requireBuildingItemOwnership
+  requireBuildingItemOwnership,
+  checkAuthHeader
 };

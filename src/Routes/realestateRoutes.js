@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const realestateController = require('../controllers/realestateController');
-const authMiddleware = require('../middleware/auth');
-const { requireAuth, requireRole, requirePropertyOwnership } =  require('../middleware/auth');
+const { requireAuth, requireRole, requirePropertyOwnership, checkAuthHeader } = require('../middleware/auth');
 
 router.get('/', realestateController.getAllRealEstate);
 router.get('/:id', realestateController.getRealEstateById);
@@ -11,6 +10,7 @@ router.get('/similar/:id', realestateController.getRealEstateSimilar);
 router.get('/my-properties', requireAuth, requireRole(['company']), realestateController.getMyProperties);
 
 router.post('/', 
+    checkAuthHeader,
     requireAuth, 
     requireRole(['admin', 'company']), 
     realestateController.upload.fields([

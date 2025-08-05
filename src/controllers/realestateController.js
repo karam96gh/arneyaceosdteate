@@ -268,8 +268,14 @@ const addRealEstate = async (req, res) => {
     try {
         // Defensive check for missing req.user
         if (!req.user) {
+            console.log('req.user is undefined');
+            console.log('req.headers:', req.headers);
             return res.status(401).json({
-                message: 'Authentication required. User not found in request. Make sure you are sending a valid Authorization token.'
+                message: 'Authentication required. User not found in request. Make sure you are sending a valid Authorization token.',
+                debug: {
+                    hasUser: !!req.user,
+                    headers: Object.keys(req.headers)
+                }
             });
         }
 
@@ -281,14 +287,20 @@ const addRealEstate = async (req, res) => {
 
         // ✅ تحديد الشركة المالكة
         let finalCompanyId = 0;
-        console.log('headers:', req.headers);
+        console.log('User info:', req.user);
+        console.log('User role:', req.user.role);
         
         if (req.user.role === 'company') {
             finalCompanyId = req.user.id;
-        } else if (req.user.role === 'admin' && !finalCompanyId) {
-            return res.status(400).json({ 
-                message: 'Company ID is required for admin users' 
-            });
+        } else if (req.user.role === 'admin') {
+            // للمدير، نحتاج companyId في body
+            if (req.body.companyId) {
+                finalCompanyId = parseInt(req.body.companyId);
+            } else {
+                return res.status(400).json({ 
+                    message: 'Company ID is required for admin users' 
+                });
+            }
         }
 
         // الحصول على الملفات
