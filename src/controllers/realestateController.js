@@ -266,23 +266,30 @@ const getRealEstateById = async (req, res) => {
 // Add a new real estate listing - FIXED
 const addRealEstate = async (req, res) => {
     try {
-        console.log('=== ADD REAL ESTATE START ===');
-        console.log('Headers:', Object.keys(req.headers));
-        console.log('Authorization header:', req.headers.authorization);
+        console.log('=== ADD REAL ESTATE START (SERVER VERSION) ===');
+        console.log('Environment:', process.env.NODE_ENV || 'development');
+        console.log('Headers received:', Object.keys(req.headers));
+        console.log('Authorization header present:', !!req.headers.authorization);
         console.log('req.user at start:', !!req.user);
         
-        // ✅ إضافة التحقق المبدئي من وجود req.user
+        // ✅ تحقق صارم من req.user
         if (!req.user) {
-            console.log('❌ req.user is missing - this suggests auth middleware issue');
-            console.log('Request method:', req.method);
-            console.log('Request URL:', req.originalUrl);
-            console.log('Headers received:', req.headers);
+            console.log('❌ CRITICAL: req.user is missing on server');
+            console.log('This should not happen if server auth fix is working');
+            console.log('Request details:', {
+                method: req.method,
+                url: req.originalUrl,
+                hasAuthHeader: !!req.headers.authorization,
+                contentType: req.headers['content-type']
+            });
             
             return res.status(401).json({
                 success: false,
                 error: {
                     code: 'AUTH_REQUIRED',
-                    message: 'Authentication required. User not found in request. Make sure you are sending a valid Authorization token.'
+                    message: 'Authentication required. User not found in request. Make sure you are sending a valid Authorization token.',
+                    server: 'production',
+                    timestamp: new Date().toISOString()
                 },
                 debug: {
                     hasUser: !!req.user,
@@ -290,42 +297,55 @@ const addRealEstate = async (req, res) => {
                     method: req.method,
                     url: req.originalUrl,
                     authHeader: req.headers.authorization ? 'Present' : 'Missing',
-                    suggestion: 'Check if auth middleware is running before this function'
+                    suggestion: 'Check if server auth middleware is running before this function'
                 }
             });
         }
 
-        console.log('✅ User found in request:', {
+        console.log('✅ User authenticated successfully:', {
             id: req.user.id,
+            username: req.user.username,
             role: req.user.role,
-            username: req.user.username
+            isCompany: req.user.isCompany
         });
 
+        // استخراج البيانات من req.body
         const {
             price, title, cityId, neighborhoodId, paymentMethod, mainCategoryId,
             subCategoryId, finalTypeId, buildingId, buildingItemId, viewTime, 
-            location, description, finalCityId, properties, ...otherData
+            location, description, finalCityId, properties, companyId, ...otherData
         } = req.body;
 
-        // ✅ تحديد الشركة المالكة مع معالجة أفضل للأخطاء
+        console.log('Request body data:', {
+            hasPrice: !!price,
+            hasTitle: !!title,
+            hasCityId: !!cityId,
+            hasMainCategoryId: !!mainCategoryId,
+            bodyKeys: Object.keys(req.body)
+        });
+
+        // ✅ تحديد الشركة المالكة مع معالجة أفضل
         let finalCompanyId = null;
-        console.log('Determining company ID...');
+        
+        console.log('Determining company ownership...');
         console.log('User role:', req.user.role);
+        console.log('User ID:', req.user.id);
+        console.log('Provided companyId in body:', companyId);
         
         if (req.user.role === 'company') {
             finalCompanyId = req.user.id;
-            console.log('✅ Company user - using their ID:', finalCompanyId);
+            console.log('✅ Company user - using their own ID:', finalCompanyId);
         } else if (req.user.role === 'admin') {
-            if (req.body.companyId) {
-                finalCompanyId = parseInt(req.body.companyId);
+            if (companyId) {
+                finalCompanyId = parseInt(companyId);
                 console.log('✅ Admin user - using provided company ID:', finalCompanyId);
             } else {
-                console.log('❌ Admin user but no companyId provided');
+                console.log('❌ Admin user but no companyId provided in request body');
                 return res.status(400).json({ 
                     success: false,
                     error: {
                         code: 'MISSING_COMPANY_ID',
-                        message: 'Company ID is required for admin users'
+                        message: 'Company ID is required in request body for admin users'
                     }
                 });
             }
@@ -340,102 +360,100 @@ const addRealEstate = async (req, res) => {
             });
         }
 
-        // الحصول على الملفات
+        // فحص الملفات المرفوعة
         const coverImage = req.files?.coverImage?.[0]?.filename;
         const files = req.files?.files?.map(file => file.filename) || [];
 
         console.log('Files received:', {
-            coverImage: !!coverImage,
-            additionalFiles: files.length
+            coverImage: coverImage || 'MISSING',
+            additionalFiles: files.length,
+            totalFiles: (coverImage ? 1 : 0) + files.length
         });
 
-        // التحقق من الحقول المطلوبة مع رسائل خطأ أفضل
-        const requiredFields = {
-            price: price,
-            title: title,
-            cityId: cityId,
-            neighborhoodId: neighborhoodId,
-            mainCategoryId: mainCategoryId,
-            subCategoryId: subCategoryId,
-            finalTypeId: finalTypeId,
-            coverImage: coverImage,
-            companyId: finalCompanyId
-        };
+        // التحقق من الحقول المطلوبة
+        const requiredFields = [
+            { key: 'price', value: price },
+            { key: 'title', value: title },
+            { key: 'cityId', value: cityId },
+            { key: 'neighborhoodId', value: neighborhoodId },
+            { key: 'mainCategoryId', value: mainCategoryId },
+            { key: 'subCategoryId', value: subCategoryId },
+            { key: 'finalTypeId', value: finalTypeId },
+            { key: 'coverImage', value: coverImage },
+            { key: 'companyId', value: finalCompanyId }
+        ];
 
-        const missingFields = Object.entries(requiredFields)
-            .filter(([key, value]) => !value)
-            .map(([key]) => key);
+        const missingFields = requiredFields
+            .filter(field => !field.value)
+            .map(field => field.key);
 
         if (missingFields.length > 0) {
             console.log('❌ Missing required fields:', missingFields);
+            
+            // حذف الملفات المرفوعة في حالة خطأ
+            if (coverImage) {
+                try {
+                    await deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, coverImage));
+                } catch (cleanupError) {
+                    console.warn('Could not delete cover image:', cleanupError.message);
+                }
+            }
+            
+            files.forEach(async (filename) => {
+                try {
+                    await deleteFileFromDisk(path.join(require('../config/upload').UPLOAD_PATHS.REALESTATE, filename));
+                } catch (cleanupError) {
+                    console.warn('Could not delete file:', cleanupError.message);
+                }
+            });
+            
             return res.status(400).json({ 
                 success: false,
                 error: {
                     code: 'MISSING_REQUIRED_FIELDS',
                     message: 'Missing required fields',
                     missingFields: missingFields,
-                    requiredFields: Object.keys(requiredFields)
+                    allRequiredFields: requiredFields.map(f => f.key)
                 }
             });
         }
 
+        console.log('✅ All required fields present');
+
+        // الاتصال بقاعدة البيانات
         const prisma = dbManager.getPrisma();
+        console.log('Connected to database');
 
-        // التحقق من صحة المراجع مع معالجة أخطاء أفضل
-        console.log('Validating references...');
-        const validationErrors = [];
-
+        // التحقق من صحة المراجع
+        console.log('Validating database references...');
+        
         try {
-            // التحقق من وجود الشركة
-            const company = await prisma.user.findUnique({ 
-                where: { id: parseInt(finalCompanyId) },
-                select: { id: true, role: true, isActive: true, companyName: true }
-            });
-            
-            if (!company) {
-                validationErrors.push('Company not found');
-            } else if (company.role !== 'COMPANY') {
-                validationErrors.push('Invalid company user - role is not COMPANY');
-            } else if (!company.isActive) {
-                validationErrors.push('Company account is not active');
-            }
-
-            // التحقق من باقي المراجع
-            const [city, neighborhood, finalType] = await Promise.all([
+            const validationPromises = [
+                prisma.user.findUnique({ 
+                    where: { id: parseInt(finalCompanyId) },
+                    select: { id: true, role: true, isActive: true, companyName: true }
+                }),
                 prisma.city.findUnique({ where: { id: parseInt(cityId) } }),
                 prisma.neighborhood.findUnique({ where: { id: parseInt(neighborhoodId) } }),
+                prisma.mainType.findUnique({ where: { id: parseInt(mainCategoryId) } }),
+                prisma.subType.findUnique({ where: { id: parseInt(subCategoryId) } }),
                 prisma.finalType.findUnique({ where: { id: parseInt(finalTypeId) } })
-            ]);
+            ];
 
+            const [company, city, neighborhood, mainType, subType, finalType] = 
+                await Promise.all(validationPromises);
+
+            const validationErrors = [];
+            
+            if (!company) validationErrors.push('Company not found');
+            else if (company.role !== 'COMPANY') validationErrors.push('Invalid company user type');
+            else if (!company.isActive) validationErrors.push('Company account is inactive');
+            
             if (!city) validationErrors.push('City not found');
             if (!neighborhood) validationErrors.push('Neighborhood not found');
+            if (!mainType) validationErrors.push('Main category not found');
+            if (!subType) validationErrors.push('Sub category not found');
             if (!finalType) validationErrors.push('Final type not found');
-
-            // التحقق من المبنى (إذا تم تمريره) + التأكد من ملكية الشركة
-            if (buildingId) {
-                const building = await prisma.building.findUnique({ 
-                    where: { id: buildingId },
-                    select: { id: true, companyId: true }
-                });
-                if (!building) {
-                    validationErrors.push('Building not found');
-                } else if (building.companyId !== parseInt(finalCompanyId)) {
-                    validationErrors.push('Building belongs to different company');
-                }
-            }
-
-            // التحقق من عنصر المبنى (إذا تم تمريره) + التأكد من ملكية الشركة
-            if (buildingItemId) {
-                const buildingItem = await prisma.buildingItem.findUnique({ 
-                    where: { id: buildingItemId },
-                    select: { id: true, companyId: true }
-                });
-                if (!buildingItem) {
-                    validationErrors.push('Building item not found');
-                } else if (buildingItem.companyId !== parseInt(finalCompanyId)) {
-                    validationErrors.push('Building item belongs to different company');
-                }
-            }
 
             if (validationErrors.length > 0) {
                 console.log('❌ Validation errors:', validationErrors);
@@ -443,35 +461,35 @@ const addRealEstate = async (req, res) => {
                     success: false,
                     error: {
                         code: 'VALIDATION_FAILED',
-                        message: 'Validation errors occurred',
+                        message: 'Database validation failed',
                         validationErrors: validationErrors
                     }
                 });
             }
 
-            console.log('✅ All validations passed');
+            console.log('✅ All database references validated');
 
-            // إنشاء العقار داخل transaction
+            // إنشاء العقار في transaction
+            console.log('Creating real estate record...');
+            
             const result = await prisma.$transaction(async (tx) => {
-                console.log('Creating real estate record...');
-                
                 // إنشاء العقار
                 const realEstate = await tx.realEstate.create({
                     data: {
                         price: parseInt(price),
-                        title,
+                        title: title.trim(),
                         cityId: parseInt(cityId),
                         neighborhoodId: parseInt(neighborhoodId),
-                        paymentMethod,
+                        paymentMethod: paymentMethod || 'cash',
                         mainCategoryId: parseInt(mainCategoryId),
                         subCategoryId: parseInt(subCategoryId),
                         finalTypeId: parseInt(finalTypeId),
                         buildingId: buildingId || null,
                         buildingItemId: buildingItemId || null,
                         companyId: parseInt(finalCompanyId),
-                        viewTime,
-                        location,
-                        description,
+                        viewTime: viewTime || null,
+                        location: location || '0.0,0.0',
+                        description: description || null,
                         finalCityId: finalCityId ? parseInt(finalCityId) : null,
                         coverImage,
                         createdAt: new Date(),
@@ -479,9 +497,9 @@ const addRealEstate = async (req, res) => {
                     }
                 });
 
-                console.log('✅ Real estate created with ID:', realEstate.id);
+                console.log('✅ Real estate record created, ID:', realEstate.id);
 
-                // إضافة الملفات
+                // إضافة الملفات الإضافية
                 if (files.length > 0) {
                     await tx.file.createMany({
                         data: files.map(fileName => ({
@@ -494,23 +512,25 @@ const addRealEstate = async (req, res) => {
 
                 // إضافة قيم الخصائص
                 if (properties && typeof properties === 'object') {
-                    console.log('Adding property values...');
+                    console.log('Processing property values...');
                     const propertyValues = [];
                     
                     for (const [propertyKey, value] of Object.entries(properties)) {
-                        const property = await tx.property.findFirst({
-                            where: {
-                                propertyKey,
-                                finalTypeId: parseInt(finalTypeId)
-                            }
-                        });
-
-                        if (property && value !== null && value !== undefined && value !== '') {
-                            propertyValues.push({
-                                realEstateId: realEstate.id,
-                                propertyId: property.id,
-                                value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+                        if (value !== null && value !== undefined && value !== '') {
+                            const property = await tx.property.findFirst({
+                                where: {
+                                    propertyKey,
+                                    finalTypeId: parseInt(finalTypeId)
+                                }
                             });
+
+                            if (property) {
+                                propertyValues.push({
+                                    realEstateId: realEstate.id,
+                                    propertyId: property.id,
+                                    value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+                                });
+                            }
                         }
                     }
 
@@ -527,33 +547,40 @@ const addRealEstate = async (req, res) => {
 
             console.log('✅ Transaction completed successfully');
 
-            res.status(201).json({ 
+            // إرجاع الاستجابة النهائية
+            const response = {
                 success: true,
                 data: {
                     id: result.id,
+                    title: result.title,
+                    price: result.price,
                     coverImageUrl: buildRealEstateFileUrl(coverImage),
-                    filesCount: files.length,
+                    additionalFilesCount: files.length,
                     companyId: parseInt(finalCompanyId),
-                    companyName: company.companyName
+                    companyName: company.companyName,
+                    createdAt: result.createdAt
                 },
-                message: 'Real estate listing created successfully'
-            });
-            
+                message: 'Real estate listing created successfully on server'
+            };
+
+            console.log('✅ Sending success response');
+            res.status(201).json(response);
+
         } catch (dbError) {
-            console.error('❌ Database error during validation/creation:', dbError);
+            console.error('❌ Database error:', dbError);
             throw dbError;
         }
         
     } catch (error) {
-        console.error('❌ Error adding real estate:', error);
+        console.error('❌ Error in addRealEstate (server):', error);
         
-        // حذف الملفات المرفوعة في حالة خطأ
+        // تنظيف الملفات في حالة خطأ
         if (req.files?.coverImage?.[0]) {
             try {
                 await deleteFileFromDisk(req.files.coverImage[0].path);
-                console.log('✅ Cleaned up cover image file');
+                console.log('🗑️ Cleaned up cover image');
             } catch (cleanupError) {
-                console.error('Failed to cleanup cover image:', cleanupError);
+                console.warn('Could not cleanup cover image:', cleanupError.message);
             }
         }
         
@@ -562,40 +589,45 @@ const addRealEstate = async (req, res) => {
                 try {
                     await deleteFileFromDisk(file.path);
                 } catch (cleanupError) {
-                    console.error('Failed to cleanup file:', cleanupError);
+                    console.warn('Could not cleanup file:', cleanupError.message);
                 }
             }
-            console.log('✅ Cleaned up additional files');
+            console.log('🗑️ Cleaned up additional files');
         }
         
-        // تحديد نوع الخطأ وإرجاع رد مناسب
+        // تحديد نوع الخطأ
+        let errorCode = 'SERVER_ERROR';
+        let errorMessage = 'Internal server error occurred';
+        
         if (error.code === 'P2002') {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'DUPLICATE_ENTRY',
-                    message: 'Duplicate entry detected'
-                }
-            });
+            errorCode = 'DUPLICATE_ENTRY';
+            errorMessage = 'Duplicate entry detected';
+        } else if (error.code === 'P2003') {
+            errorCode = 'FOREIGN_KEY_CONSTRAINT';
+            errorMessage = 'Invalid reference to related data';
+        } else if (error.code === 'P2025') {
+            errorCode = 'RECORD_NOT_FOUND';
+            errorMessage = 'Required record not found';
         }
         
-        if (error.code === 'P2003') {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'FOREIGN_KEY_CONSTRAINT',
-                    message: 'Invalid reference to related data'
-                }
-            });
-        }
-        
-        res.status(500).json({ 
+        const errorResponse = {
             success: false,
             error: {
-                code: 'SERVER_ERROR',
-                message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error occurred'
+                code: errorCode,
+                message: errorMessage,
+                server: 'production',
+                timestamp: new Date().toISOString()
             }
-        });
+        };
+        
+        if (process.env.NODE_ENV === 'development') {
+            errorResponse.debug = {
+                originalError: error.message,
+                stack: error.stack
+            };
+        }
+        
+        res.status(500).json(errorResponse);
     }
 };
 // Get my properties - FIXED
