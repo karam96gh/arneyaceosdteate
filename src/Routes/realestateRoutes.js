@@ -191,7 +191,10 @@ try {
     };
 }
 
-// ✅ مسار اختبار Auth
+// ✅ GET routes (لا تحتاج تغيير)
+router.get('/', realestateController.getAllRealEstate);
+
+// ✅ مسارات الاختبار يجب أن تكون قبل /:id
 router.get('/test-auth', serverAuthFix, (req, res) => {
     res.json({
         success: true,
@@ -221,8 +224,18 @@ router.get('/test-auth-role',
     }
 );
 
-// ✅ GET routes (لا تحتاج تغيير)
-router.get('/', realestateController.getAllRealEstate);
+// مسار اختبار بسيط بدون auth
+router.get('/test-simple', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Simple test working!',
+        server: 'production',
+        timestamp: new Date().toISOString(),
+        headers: Object.keys(req.headers)
+    });
+});
+
+// ✅ GET routes مع IDs (يجب أن تكون بعد المسارات الثابتة)
 router.get('/:id', realestateController.getRealEstateById);
 router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
 router.get('/similar/:id', realestateController.getRealEstateSimilar);
