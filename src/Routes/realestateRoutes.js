@@ -7,10 +7,11 @@ const { preserveUserAfterMulter } = require('../middleware/preserveUser');
 
 // GET routes (no auth issues)
 router.get('/', realestateController.getAllRealEstate);
+router.get('/my-properties', requireAuth, requireRole(['company']), realestateController.getMyProperties);
+
 router.get('/:id', realestateController.getRealEstateById);
 router.get('/items/:id', realestateController.getRealEstateByBuildingItemId);
 router.get('/similar/:id', realestateController.getRealEstateSimilar);
-router.get('/my-properties', requireAuth, requireRole(['company']), realestateController.getMyProperties);
 
 // ✅ POST route with FIXED middleware order
 router.post('/', 
