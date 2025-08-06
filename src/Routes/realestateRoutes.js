@@ -14,20 +14,50 @@ router.get('/my-properties', requireAuth, requireRole(['company']), realestateCo
 
 // ✅ POST route with FIXED middleware order
 router.post('/', 
-    // ✅ 1. أولاً: التحقق من المصادقة
+    // تسجيل قبل auth
+    (req, res, next) => {
+        console.log('🔍 [STEP 1] Before auth - req.user:', !!req.user);
+        console.log('🔍 [STEP 1] Auth header:', !!req.headers.authorization);
+        next();
+    },
+    
+    // المصادقة
     requireAuth,
-    // ✅ 2. ثانياً: التحقق من الدور
+    
+    // تسجيل بعد auth
+    (req, res, next) => {
+        console.log('🔍 [STEP 2] After auth - req.user:', !!req.user);
+        if (req.user) {
+            console.log('🔍 [STEP 2] User details:', { id: req.user.id, role: req.user.role });
+        }
+        next();
+    },
+    
+    // التحقق من الدور
     requireRole(['admin', 'company']),
-    // ✅ 3. ثالثاً: رفع الملفات (multer middleware)
+    
+    // تسجيل بعد role
+    (req, res, next) => {
+        console.log('🔍 [STEP 3] After role check - req.user:', !!req.user);
+        next();
+    },
+    
+    // رفع الملفات
     realestateController.upload.fields([
         { name: 'coverImage', maxCount: 1 },
         { name: 'files', maxCount: 10 }
     ]),
-    // ✅ 4. رابعاً: middleware لحفظ بيانات المستخدم بعد multer
-    preserveUserAfterMulter,
-    // ✅ 5. أخيراً: controller function
+    
+    // تسجيل بعد multer
+    (req, res, next) => {
+        console.log('🔍 [STEP 4] After multer - req.user:', !!req.user);
+        next();
+    },
+    
+    // Controller
     realestateController.addRealEstate
 );
+
 
 // Other routes
 router.delete('/:id', requireAuth, requirePropertyOwnership, realestateController.deleteRealEstate);
