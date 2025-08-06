@@ -1,4 +1,4 @@
-// src/routes/authRoutes.js
+// src/routes/authRoutes.js - UPDATED WITH TEST ENDPOINT
 const express = require('express');
 const router = express.Router();
 const {
@@ -10,9 +10,12 @@ const {
   changePassword,
   resetPassword
 } = require('../controllers/authController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, testAuth } = require('../middleware/auth');
 
-// مساx
+// ✅ مسار اختبار التوكن (للتطوير والتشخيص)
+router.get('/test-token', testAuth);
+
+// مسارات عامة (لا تحتاج مصادقة)
 router.post('/login', login);
 router.post('/register', register);
 
