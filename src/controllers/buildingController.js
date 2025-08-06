@@ -13,7 +13,6 @@ const getBuildings = async (req, res) => {
         }
 
         const buildings = await prisma.building.findMany({
-            where: whereClause, // ✅ إضافة الشرط
             include: {
                 // ✅ إضافة معلومات الشركة بشكل صحيح
                 company: { 

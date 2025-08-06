@@ -7,11 +7,13 @@ const router = express.Router();
 
 // المسارات الخاصة بالمباني
 router.get('/buildings', requireAuth, getBuildings); // ✅ إضافة auth
+router.get('/buildings/my-buildings', requireAuth, requireRole(['company']), getMyBuildings);
+
 router.get('/buildings/:id', getBuildingById);
+
 router.post('/buildings', createBuilding);
 router.put('/buildings/:id', updateBuilding);
 router.delete('/buildings/:id', deleteBuilding);
-router.get('/my-buildings', requireAuth, requireRole(['company']), getMyBuildings);
 
 // المسارات الخاصة بالعناصر داخل المباني
 router.get('/buildings/:buildingId/items', requireAuth, getBuildingItems); // ✅ إضافة auth
