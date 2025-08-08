@@ -11,7 +11,7 @@ router.get('/buildings/my-buildings', requireAuth, requireRole(['company']), get
 
 router.get('/buildings/:id', getBuildingById);
 
-rrouter.post('/buildings', requireRole(['admin', 'company']), createBuilding);
+router.post('/buildings', requireRole(['admin', 'company']), createBuilding);
 router.put('/buildings/:id', requireRole(['admin', 'company']), updateBuilding);
 router.delete('/buildings/:id', requireRole(['admin', 'company']), deleteBuilding);
 
