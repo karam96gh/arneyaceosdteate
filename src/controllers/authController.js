@@ -314,7 +314,7 @@ const getMe = async (req, res) => {
 // الحصول على جميع المستخدمين - FIXED
 const getUsers = async (req, res) => {
   try {
-    const { role, isActive, page = 1, limit = 10 } = req.query;
+    const { role, isActive, page = 1, limit = 100000 } = req.query;
     const prisma = dbManager.getPrisma();
     
     // بناء شروط البحث

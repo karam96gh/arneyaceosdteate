@@ -11,9 +11,9 @@ router.get('/buildings/my-buildings', requireAuth, requireRole(['company']), get
 
 router.get('/buildings/:id', getBuildingById);
 
-router.post('/buildings', createBuilding);
-router.put('/buildings/:id', updateBuilding);
-router.delete('/buildings/:id', deleteBuilding);
+rrouter.post('/buildings', requireRole(['admin', 'company']), createBuilding);
+router.put('/buildings/:id', requireRole(['admin', 'company']), updateBuilding);
+router.delete('/buildings/:id', requireRole(['admin', 'company']), deleteBuilding);
 
 // المسارات الخاصة بالعناصر داخل المباني
 router.get('/buildings/:buildingId/items', requireAuth, getBuildingItems); // ✅ إضافة auth
