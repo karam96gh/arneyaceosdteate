@@ -1,6 +1,43 @@
 // src/controllers/buildingController.js - FIXED VERSION
 const { dbManager } = require('../config/database');
 
+// ✅ إضافة mapping للحالات
+const STATUS_MAPPING = {
+    // من القيم المرسلة -> إلى قيم Prisma Enum
+    'مكتمل': 'COMPLETED',
+    'قيد_الإنشاء': 'UNDER_CONSTRUCTION',
+    'مخطط': 'PLANNED'
+};
+
+// ✅ العكس للقراءة من قاعدة البيانات
+const REVERSE_STATUS_MAPPING = {
+    'COMPLETED': 'مكتمل',
+    'UNDER_CONSTRUCTION': 'قيد_الإنشاء',
+    'PLANNED': 'مخطط'
+};
+
+// ✅ دالة مساعدة للتحويل
+const convertBuildingStatus = (status, toDatabase = true) => {
+    if (toDatabase) {
+        return STATUS_MAPPING[status] || status;
+    } else {
+        return REVERSE_STATUS_MAPPING[status] || status;
+    }
+};
+
+// ✅ دالة مساعدة لتحويل البيانات المقروءة
+const formatBuildingForResponse = (building) => {
+    return {
+        ...building,
+        status: convertBuildingStatus(building.status, false), // تحويل للعرض
+        // ✅ إضافة معلومات الشركة
+        companyName: building.company?.companyName || null,
+        companyPhone: building.company?.phone || null,
+        companyEmail: building.company?.email || null,
+        companyFullName: building.company?.fullName || null
+    };
+};
+
 // Get all buildings - FIXED
 const getBuildings = async (req, res) => {
     try {
@@ -13,6 +50,7 @@ const getBuildings = async (req, res) => {
         }
 
         const buildings = await prisma.building.findMany({
+            where: whereClause,
             include: {
                 // ✅ إضافة معلومات الشركة بشكل صحيح
                 company: { 
@@ -41,16 +79,11 @@ const getBuildings = async (req, res) => {
             orderBy: { createdAt: 'desc' }
         });
 
-        // إضافة عدد العقارات لكل مبنى - FIXED
+        // ✅ تحويل البيانات للعرض
         const buildingsWithCounts = buildings.map(building => ({
-            ...building,
+            ...formatBuildingForResponse(building),
             realEstateCount: building._count.realEstates,
-            itemsCount: building._count.items,
-            // ✅ إضافة معلومات الشركة بشكل صحيح
-            companyName: building.company?.companyName || null,
-            companyPhone: building.company?.phone || null,
-            companyEmail: building.company?.email || null,
-            companyFullName: building.company?.fullName || null
+            itemsCount: building._count.items
         }));
 
         res.status(200).json(buildingsWithCounts);
@@ -108,14 +141,9 @@ const getBuildingById = async (req, res) => {
             return res.status(404).json({ message: 'Building not found' });
         }
 
-        // تنسيق البيانات - FIXED
+        // ✅ تنسيق البيانات مع التحويل
         const formattedBuilding = {
-            ...building,
-            // ✅ إضافة معلومات الشركة
-            companyName: building.company?.companyName || null,
-            companyPhone: building.company?.phone || null,
-            companyEmail: building.company?.email || null,
-            companyFullName: building.company?.fullName || null,
+            ...formatBuildingForResponse(building),
             items: building.items.map(item => ({
                 ...item,
                 realEstateCount: item._count.realEstates
@@ -154,7 +182,7 @@ const createBuilding = async (req, res) => {
             });
         }
 
-        // التحقق من صحة status
+        // ✅ التحقق من صحة status مع القيم العربية
         const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
@@ -182,13 +210,14 @@ const createBuilding = async (req, res) => {
             });
         }
 
+        // ✅ تحويل status إلى enum value قبل الحفظ
         const building = await prisma.building.create({
             data: {
                 title,
-                status,
+                status: convertBuildingStatus(status, true), // ✅ تحويل للقاعدة
                 location: location || '0.0,0.0',
                 buildingAge,
-                companyId: parseInt(finalCompanyId) // ✅ إضافة companyId
+                companyId: parseInt(finalCompanyId)
             },
             include: {
                 company: { 
@@ -203,14 +232,8 @@ const createBuilding = async (req, res) => {
             }
         });
 
-        // ✅ تنسيق الاستجابة مع معلومات الشركة
-        const formattedBuilding = {
-            ...building,
-            companyName: building.company?.companyName || null,
-            companyPhone: building.company?.phone || null,
-            companyEmail: building.company?.email || null,
-            companyFullName: building.company?.fullName || null
-        };
+        // ✅ تنسيق الاستجابة مع التحويل
+        const formattedBuilding = formatBuildingForResponse(building);
 
         res.status(201).json(formattedBuilding);
     } catch (error) {
@@ -221,51 +244,48 @@ const createBuilding = async (req, res) => {
 
 // Get my buildings - FIXED
 const getMyBuildings = async (req, res) => {
-  try {
-    const prisma = dbManager.getPrisma();
-    
-    const buildings = await prisma.building.findMany({
-      where: { companyId: req.user.id },
-      include: {
-        // ✅ إضافة معلومات الشركة
-        company: { 
-          select: { 
-            id: true, 
-            companyName: true, 
-            phone: true,
-            email: true 
-          } 
-        },
-        items: {
-          include: {
-            _count: { select: { realEstates: true } }
-          }
-        },
-        _count: {
-          select: {
-            items: true,
-            realEstates: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    const formattedBuildings = buildings.map(building => ({
-      ...building,
-      // ✅ إضافة معلومات الشركة
-      companyName: building.company?.companyName || null,
-      companyPhone: building.company?.phone || null,
-      companyEmail: building.company?.email || null,
-      itemsCount: building._count.items,
-      realEstatesCount: building._count.realEstates
-    }));
-    
-    res.json(formattedBuildings);
-  } catch (error) {
-    console.error('Error in getMyBuildings:', error);
-    res.status(500).json({ error: error.message });
-  }
+    try {
+        const prisma = dbManager.getPrisma();
+        
+        const buildings = await prisma.building.findMany({
+            where: { companyId: req.user.id },
+            include: {
+                // ✅ إضافة معلومات الشركة
+                company: { 
+                    select: { 
+                        id: true, 
+                        companyName: true, 
+                        phone: true,
+                        email: true 
+                    } 
+                },
+                items: {
+                    include: {
+                        _count: { select: { realEstates: true } }
+                    }
+                },
+                _count: {
+                    select: {
+                        items: true,
+                        realEstates: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        
+        // ✅ تحويل البيانات للعرض
+        const formattedBuildings = buildings.map(building => ({
+            ...formatBuildingForResponse(building),
+            itemsCount: building._count.items,
+            realEstatesCount: building._count.realEstates
+        }));
+        
+        res.json(formattedBuildings);
+    } catch (error) {
+        console.error('Error in getMyBuildings:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 // Update building - FIXED
@@ -290,7 +310,7 @@ const updateBuilding = async (req, res) => {
             }
         });
 
-        // التحقق من صحة status إذا تم تمريره
+        // ✅ التحقق من صحة status إذا تم تمريره
         if (updates.status) {
             const validStatuses = ['مكتمل', 'قيد_الإنشاء', 'مخطط'];
             if (!validStatuses.includes(updates.status)) {
@@ -298,6 +318,8 @@ const updateBuilding = async (req, res) => {
                     message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
                 });
             }
+            // ✅ تحويل status إلى enum value
+            updates.status = convertBuildingStatus(updates.status, true);
         }
 
         // ✅ التحقق من ملكية المبنى قبل التحديث
@@ -330,12 +352,8 @@ const updateBuilding = async (req, res) => {
             }
         });
 
-        // ✅ تنسيق الاستجابة
-        const formattedBuilding = {
-            ...building,
-            companyName: building.company?.companyName || null,
-            companyPhone: building.company?.phone || null
-        };
+        // ✅ تنسيق الاستجابة مع التحويل
+        const formattedBuilding = formatBuildingForResponse(building);
 
         res.status(200).json({ 
             message: "Building updated successfully", 
