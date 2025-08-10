@@ -1,5 +1,6 @@
-// src/controllers/buildingController.js - FIXED VERSION
+// src/controllers/buildingController.js - MODIFIED VERSION مع دمج items و realEstates
 const { dbManager } = require('../config/database');
+const { buildRealEstateFileUrl } = require('../config/upload');
 
 // ✅ إضافة mapping للحالات
 const STATUS_MAPPING = {
@@ -25,6 +26,68 @@ const convertBuildingStatus = (status, toDatabase = true) => {
     }
 };
 
+// ✅ دالة تحويل العقار إلى شكل "item"
+const formatRealEstateAsItem = (realEstate) => {
+    return {
+        id: realEstate.id,
+        name: realEstate.title,                    // العنوان كاسم العنصر
+        price: realEstate.price.toString(),        // السعر كـ string
+        area: realEstate.properties?.area?.value || null,  // المساحة من الخصائص
+        type: determineItemType(realEstate.finalType?.name), // تحديد النوع
+        buildingId: realEstate.buildingId,
+        companyId: realEstate.companyId,
+        coverImage: buildRealEstateFileUrl(realEstate.coverImage),
+        description: realEstate.description,
+        cityName: realEstate.city?.name,
+        neighborhoodName: realEstate.neighborhood?.name,
+        finalTypeName: realEstate.finalType?.name,
+        paymentMethod: realEstate.paymentMethod,
+        location: realEstate.location,
+        viewTime: realEstate.viewTime,
+        advertiserType: realEstate.advertiserType || "company",
+        advertiserName: realEstate.advertiserName || realEstate.company?.companyName,
+        advertiserPhone: realEstate.advertiserPhone || realEstate.company?.phone,
+        files: realEstate.files?.map(f => buildRealEstateFileUrl(f.name)) || [],
+        properties: formatProperties(realEstate.propertyValues || []),
+        createdAt: realEstate.createdAt,
+        updatedAt: realEstate.updatedAt
+    };
+};
+
+// ✅ دالة تحديد نوع العنصر من نوع العقار
+const determineItemType = (finalTypeName) => {
+    if (!finalTypeName) return 'apartment';
+    
+    const typeName = finalTypeName.toLowerCase();
+    
+    if (typeName.includes('شقة') || typeName.includes('apartment')) return 'apartment';
+    if (typeName.includes('محل') || typeName.includes('shop') || typeName.includes('متجر')) return 'shop';
+    if (typeName.includes('فيلا') || typeName.includes('villa')) return 'villa';
+    if (typeName.includes('مكتب') || typeName.includes('office')) return 'office';
+    
+    return 'apartment'; // افتراضي
+};
+
+// ✅ دالة تنسيق الخصائص
+const formatProperties = (propertyValues) => {
+    const properties = {};
+    propertyValues.forEach(pv => {
+        if (pv.property) {
+            properties[pv.property.propertyKey] = {
+                value: pv.value,
+                property: {
+                    id: pv.property.id,
+                    propertyKey: pv.property.propertyKey,
+                    propertyName: pv.property.propertyName,
+                    dataType: pv.property.dataType,
+                    unit: pv.property.unit
+                }
+            };
+        }
+    });
+    return properties;
+};
+
 // ✅ دالة مساعدة لتحويل البيانات المقروءة
 const formatBuildingForResponse = (building) => {
     return {
@@ -38,7 +101,7 @@ const formatBuildingForResponse = (building) => {
     };
 };
 
-// Get all buildings - FIXED
+// Get all buildings - MODIFIED
 const getBuildings = async (req, res) => {
     try {
         const prisma = dbManager.getPrisma();
@@ -62,16 +125,36 @@ const getBuildings = async (req, res) => {
                         fullName: true
                     } 
                 },
-                items: {
+                // ✅ استبدال items بـ realEstates مع تفاصيل أساسية
+                realEstates: {
                     include: {
-                        _count: {
-                            select: { realEstates: true }
+                        city: { select: { name: true } },
+                        neighborhood: { select: { name: true } },
+                        finalType: { select: { name: true } },
+                        company: { 
+                            select: { 
+                                companyName: true, 
+                                phone: true 
+                            } 
+                        },
+                        files: { select: { name: true } },
+                        propertyValues: {
+                            include: {
+                                property: {
+                                    select: {
+                                        propertyKey: true,
+                                        propertyName: true,
+                                        dataType: true,
+                                        unit: true
+                                    }
+                                }
+                            }
                         }
-                    }
+                    },
+                    orderBy: { createdAt: 'desc' }
                 },
                 _count: {
                     select: {
-                        items: true,
                         realEstates: true
                     }
                 }
@@ -79,21 +162,28 @@ const getBuildings = async (req, res) => {
             orderBy: { createdAt: 'desc' }
         });
 
-        // ✅ تحويل البيانات للعرض
-        const buildingsWithCounts = buildings.map(building => ({
-            ...formatBuildingForResponse(building),
-            realEstateCount: building._count.realEstates,
-            itemsCount: building._count.items
-        }));
+        // ✅ تحويل البيانات للعرض مع دمج المفاهيم
+        const buildingsWithItems = buildings.map(building => {
+            const formattedBuilding = formatBuildingForResponse(building);
+            
+            return {
+                ...formattedBuilding,
+                // ✅ تحويل realEstates إلى items
+                items: building.realEstates.map(realEstate => formatRealEstateAsItem(realEstate)),
+                // ✅ الإحصائيات المبسطة
+                realEstateCount: building._count.realEstates,
+                itemsCount: building._count.realEstates  // نفس الرقم
+            };
+        });
 
-        res.status(200).json(buildingsWithCounts);
+        res.status(200).json(buildingsWithItems);
     } catch (error) {
         console.error('Error in getBuildings:', error);
         res.status(500).json({ error: error.message });
     }
 };
 
-// Get building by ID with items - FIXED
+// Get building by ID with items - MODIFIED
 const getBuildingById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -112,25 +202,41 @@ const getBuildingById = async (req, res) => {
                         fullName: true
                     } 
                 },
-                items: {
-                    include: {
-                        _count: {
-                            select: { realEstates: true }
-                        }
-                    },
-                    orderBy: { createdAt: 'desc' }
-                },
+                // ✅ استبدال items بـ realEstates مع تفاصيل كاملة
                 realEstates: {
                     include: {
                         city: { select: { name: true } },
                         neighborhood: { select: { name: true } },
-                        finalType: { select: { name: true } }
+                        finalType: { select: { name: true } },
+                        mainCategory: { select: { name: true } },
+                        subCategory: { select: { name: true } },
+                        company: { 
+                            select: { 
+                                companyName: true, 
+                                phone: true,
+                                email: true
+                            } 
+                        },
+                        files: { select: { name: true } },
+                        propertyValues: {
+                            include: {
+                                property: {
+                                    select: {
+                                        id: true,
+                                        propertyKey: true,
+                                        propertyName: true,
+                                        dataType: true,
+                                        unit: true,
+                                        groupName: true
+                                    }
+                                }
+                            }
+                        }
                     },
                     orderBy: { createdAt: 'desc' }
                 },
                 _count: {
                     select: {
-                        items: true,
                         realEstates: true
                     }
                 }
@@ -141,15 +247,14 @@ const getBuildingById = async (req, res) => {
             return res.status(404).json({ message: 'Building not found' });
         }
 
-        // ✅ تنسيق البيانات مع التحويل
+        // ✅ تنسيق البيانات مع التحويل الكامل
         const formattedBuilding = {
             ...formatBuildingForResponse(building),
-            items: building.items.map(item => ({
-                ...item,
-                realEstateCount: item._count.realEstates
-            })),
+            // ✅ تحويل realEstates إلى items مع تفاصيل كاملة
+            items: building.realEstates.map(realEstate => formatRealEstateAsItem(realEstate)),
+            // ✅ الإحصائيات المبسطة
             realEstateCount: building._count.realEstates,
-            itemsCount: building._count.items
+            itemsCount: building._count.realEstates  // نفس الرقم
         };
 
         res.status(200).json(formattedBuilding);
@@ -159,7 +264,7 @@ const getBuildingById = async (req, res) => {
     }
 };
 
-// Create new building - FIXED
+// Create new building - لا يحتاج تعديل
 const createBuilding = async (req, res) => {
     try {
         const { title, status, location, buildingAge, companyId } = req.body;
@@ -242,7 +347,7 @@ const createBuilding = async (req, res) => {
     }
 };
 
-// Get my buildings - FIXED
+// Get my buildings - MODIFIED
 const getMyBuildings = async (req, res) => {
     try {
         const prisma = dbManager.getPrisma();
@@ -259,14 +364,29 @@ const getMyBuildings = async (req, res) => {
                         email: true 
                     } 
                 },
-                items: {
+                // ✅ استبدال items بـ realEstates
+                realEstates: {
                     include: {
-                        _count: { select: { realEstates: true } }
+                        city: { select: { name: true } },
+                        neighborhood: { select: { name: true } },
+                        finalType: { select: { name: true } },
+                        files: { select: { name: true } },
+                        propertyValues: {
+                            include: {
+                                property: {
+                                    select: {
+                                        propertyKey: true,
+                                        propertyName: true,
+                                        dataType: true,
+                                        unit: true
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 _count: {
                     select: {
-                        items: true,
                         realEstates: true
                     }
                 }
@@ -274,10 +394,12 @@ const getMyBuildings = async (req, res) => {
             orderBy: { createdAt: 'desc' }
         });
         
-        // ✅ تحويل البيانات للعرض
+        // ✅ تحويل البيانات للعرض مع دمج المفاهيم
         const formattedBuildings = buildings.map(building => ({
             ...formatBuildingForResponse(building),
-            itemsCount: building._count.items,
+            // ✅ تحويل realEstates إلى items
+            items: building.realEstates.map(realEstate => formatRealEstateAsItem(realEstate)),
+            itemsCount: building._count.realEstates,
             realEstatesCount: building._count.realEstates
         }));
         
@@ -288,7 +410,7 @@ const getMyBuildings = async (req, res) => {
     }
 };
 
-// Update building - FIXED
+// Update building - لا يحتاج تعديل كبير
 const updateBuilding = async (req, res) => {
     try {
         const { id } = req.params;
@@ -368,7 +490,7 @@ const updateBuilding = async (req, res) => {
     }
 };
 
-// Delete building - FIXED
+// Delete building - MODIFIED للتحقق من العقارات بدلاً من العناصر
 const deleteBuilding = async (req, res) => {
     try {
         const { id } = req.params;
@@ -380,7 +502,6 @@ const deleteBuilding = async (req, res) => {
             include: {
                 _count: {
                     select: {
-                        items: true,
                         realEstates: true
                     }
                 }
@@ -399,12 +520,6 @@ const deleteBuilding = async (req, res) => {
         if (buildingWithDeps._count.realEstates > 0) {
             return res.status(400).json({ 
                 message: 'Cannot delete building with existing real estates' 
-            });
-        }
-
-        if (buildingWithDeps._count.items > 0) {
-            return res.status(400).json({ 
-                message: 'Cannot delete building with existing items' 
             });
         }
 

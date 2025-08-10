@@ -340,7 +340,7 @@ const getBuildingItemById = async (req, res) => {
 // Get all building items (for admin) - FIXED
 const getAllBuildingItems = async (req, res) => {
     try {
-        const { page = 1, limit = 10, buildingId, type } = req.query;
+        const { page = 1, limit = 10000, buildingId, type } = req.query;
         const prisma = dbManager.getPrisma();
         
         const whereClause = {};
