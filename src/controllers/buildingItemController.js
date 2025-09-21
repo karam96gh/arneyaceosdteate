@@ -608,8 +608,7 @@ const getAllBuildingItems = async (req, res) => {
             
             whereClause.finalType = {
                 name: {
-                    contains: typeMapping[type] || type
-                }
+                    contains: typeMapping[type] || type }
             };
         }
 

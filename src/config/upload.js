@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ✅ BASE_URL ثابت
-const BASE_URL ='http://62.171.153.198:4002';
+const BASE_URL ='https://eqraat.com/api';
 
 // ✅ تعريف مسارات موحدة
 const UPLOAD_PATHS = {
