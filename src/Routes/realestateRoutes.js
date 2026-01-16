@@ -39,7 +39,7 @@ router.post('/',
     
     // تسجيل بعد role
     (req, res, next) => {
-        console.log('🔍 [STEP 3] After role check - req.user:', !!req.user);
+        console.log('🔍 [STEP 33] After role check - req.user:', !!req.user);
         next();
     },
     
