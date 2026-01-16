@@ -548,21 +548,42 @@ const addRealEstate = async (req, res) => {
                 if (properties && typeof properties === 'object') {
                     console.log('Processing property values...');
                     const propertyValues = [];
-                    
+
                     for (const [propertyKey, value] of Object.entries(properties)) {
                         if (value !== null && value !== undefined && value !== '') {
                             const property = await tx.property.findFirst({
                                 where: {
                                     propertyKey,
                                     finalTypeId: parseInt(finalTypeId)
+                                },
+                                select: {
+                                    id: true,
+                                    dataType: true,
+                                    propertyKey: true
                                 }
                             });
 
                             if (property) {
+                                // تخطي خصائص FILE - يجب رفعها عبر API منفصل
+                                if (property.dataType === 'FILE') {
+                                    console.log(`⚠️ Skipping FILE property '${propertyKey}' - use /api/properties/files endpoint to upload files`);
+                                    continue;
+                                }
+
+                                // معالجة القيم العادية فقط
+                                let processedValue;
+                                if (typeof value === 'object' && !(value instanceof File)) {
+                                    processedValue = JSON.stringify(value);
+                                } else if (typeof value === 'string') {
+                                    processedValue = value;
+                                } else {
+                                    processedValue = String(value);
+                                }
+
                                 propertyValues.push({
                                     realEstateId: realEstate.id,
                                     propertyId: property.id,
-                                    value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+                                    value: processedValue
                                 });
                             }
                         }

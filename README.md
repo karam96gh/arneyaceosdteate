@@ -182,4 +182,131 @@ Here's a concise guide to the project’s important functions and how to use the
 
 ---
 
+## 📤 رفع ملفات الخصائص (Property Files)
+
+بعض الخصائص من نوع `FILE` (مثل `blueprints_pdf`, `purchase_agreement_pdf`, `payment_plan_pdf`) تحتاج إلى رفع ملفات PDF أو مستندات. لرفع هذه الملفات، استخدم الـ API المخصص:
+
+### 1. رفع ملف لخاصية معينة
+
+**Endpoint:** `POST /api/properties/files/:realEstateId/:propertyId/upload`
+
+**مثال باستخدام FormData:**
+
+```javascript
+const formData = new FormData();
+formData.append('file', pdfFile); // File object
+
+fetch(`https://eqraat.com/api/properties/files/${realEstateId}/${propertyId}/upload`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  },
+  body: formData
+})
+.then(response => response.json())
+.then(data => {
+  console.log('File uploaded:', data.fileInfo);
+  // data.fileInfo.path سيحتوي على الرابط الكامل للملف
+});
+```
+
+**الاستجابة:**
+```json
+{
+  "message": "File uploaded successfully",
+  "fileInfo": {
+    "fileName": "1737087081419-blueprints_pdf.pdf",
+    "originalName": "floor-plan.pdf",
+    "size": 524288,
+    "path": "https://eqraat.com/api/images/properties/blueprints_pdf/1737087081419-blueprints_pdf.pdf"
+  }
+}
+```
+
+### 2. الحصول على معلومات ملف خاصية
+
+**Endpoint:** `GET /api/properties/files/:realEstateId/:propertyId`
+
+```javascript
+fetch(`https://eqraat.com/api/properties/files/${realEstateId}/${propertyId}`, {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+})
+.then(response => response.json())
+.then(data => {
+  console.log('Download URL:', data.fileInfo.downloadUrl);
+});
+```
+
+### 3. حذف ملف خاصية
+
+**Endpoint:** `DELETE /api/properties/files/:realEstateId/:propertyId`
+
+### 4. الحصول على جميع ملفات الخصائص لعقار
+
+**Endpoint:** `GET /api/properties/files/:realEstateId`
+
+**الاستجابة:**
+```json
+[
+  {
+    "propertyId": 605,
+    "propertyKey": "blueprints_pdf",
+    "propertyName": "خرائط وتصاميمpdf",
+    "groupName": "المستندات",
+    "fileInfo": {
+      "fileName": "1737087081419-blueprints_pdf.pdf",
+      "originalName": "floor-plan.pdf",
+      "size": 524288,
+      "downloadUrl": "https://eqraat.com/api/images/properties/blueprints_pdf/1737087081419-blueprints_pdf.pdf"
+    }
+  }
+]
+```
+
+### ⚠️ ملاحظات مهمة
+
+1. **لا ترسل ملفات الخصائص مع بيانات إضافة العقار الأساسية** - الـ API سيتخطاها تلقائياً
+2. **يجب رفع ملفات الخصائص بعد إنشاء العقار** باستخدام الـ endpoint المخصص أعلاه
+3. **الأنواع المسموحة:** PDF, DOC, DOCX (حسب إعدادات الخاصية في قاعدة البيانات)
+4. **الحد الأقصى لحجم الملف:** 15MB للخصائص
+
+### سير العمل الكامل
+
+```javascript
+// 1. إضافة العقار أولاً (بدون ملفات الخصائص)
+const realEstateData = {
+  title: "شقة للبيع",
+  price: 50000,
+  // ... باقي البيانات
+  properties: {
+    bedrooms: "3",
+    bathrooms: "2"
+    // لا ترسل blueprints_pdf هنا!
+  }
+};
+
+const response = await fetch('/api/realestate', {
+  method: 'POST',
+  body: formDataWithImages
+});
+
+const { data } = await response.json();
+const realEstateId = data.id;
+
+// 2. رفع ملفات الخصائص
+const blueprintsPdfPropertyId = 605; // ID الخاصية من قاعدة البيانات
+
+const fileFormData = new FormData();
+fileFormData.append('file', blueprintsPdfFile);
+
+await fetch(`/api/properties/files/${realEstateId}/${blueprintsPdfPropertyId}/upload`, {
+  method: 'POST',
+  body: fileFormData
+});
+```
+
+---
+
 If you'd like, I can expand the file descriptions with examples of key methods, update badges, or generate a simple API reference from the routes — tell me which you'd prefer next! ✨
