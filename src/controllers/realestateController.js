@@ -61,8 +61,25 @@ const getAllRealEstate = async (req, res) => {
         const formattedData = realEstates.map(realEstate => {
             const propertyValuesObj = {};
             realEstate.propertyValues.forEach(pv => {
+                let processedValue = pv.value;
+                let fileUrl = null;
+
+                // معالجة خاصة للخصائص من نوع FILE
+                if (pv.property.dataType === 'FILE') {
+                    try {
+                        const fileInfo = JSON.parse(pv.value);
+                        // استخراج رابط الملف
+                        fileUrl = require('../config/upload').buildPropertyFileUrl(pv.property.propertyKey, fileInfo.fileName);
+                        processedValue = fileUrl; // وضع الرابط في value
+                    } catch (parseError) {
+                        console.warn('Failed to parse FILE property:', pv.property.propertyKey, parseError.message);
+                        processedValue = pv.value;
+                    }
+                }
+
                 propertyValuesObj[pv.property.propertyKey] = {
-                    value: pv.value,
+                    value: processedValue,
+                    url: fileUrl, // إضافة url منفصل
                     property: pv.property
                 };
             });
@@ -191,8 +208,25 @@ const getRealEstateById = async (req, res) => {
         // تنسيق البيانات مع تفاصيل أكثر
         const propertyValuesObj = {};
         realEstate.propertyValues.forEach(pv => {
+            let processedValue = pv.value;
+            let fileUrl = null;
+
+            // معالجة خاصة للخصائص من نوع FILE
+            if (pv.property.dataType === 'FILE') {
+                try {
+                    const fileInfo = JSON.parse(pv.value);
+                    // استخراج رابط الملف
+                    fileUrl = require('../config/upload').buildPropertyFileUrl(pv.property.propertyKey, fileInfo.fileName);
+                    processedValue = fileUrl; // وضع الرابط في value
+                } catch (parseError) {
+                    console.warn('Failed to parse FILE property:', pv.property.propertyKey, parseError.message);
+                    processedValue = pv.value;
+                }
+            }
+
             propertyValuesObj[pv.property.propertyKey] = {
-                value: pv.value,
+                value: processedValue,
+                url: fileUrl, // إضافة url منفصل
                 property: pv.property
             };
         });
@@ -725,8 +759,25 @@ const getRealEstateByBuildingItemId = async (req, res) => {
         const formattedData = realEstates.map(realEstate => {
             const propertyValuesObj = {};
             realEstate.propertyValues.forEach(pv => {
+                let processedValue = pv.value;
+                let fileUrl = null;
+
+                // معالجة خاصة للخصائص من نوع FILE
+                if (pv.property.dataType === 'FILE') {
+                    try {
+                        const fileInfo = JSON.parse(pv.value);
+                        // استخراج رابط الملف
+                        fileUrl = require('../config/upload').buildPropertyFileUrl(pv.property.propertyKey, fileInfo.fileName);
+                        processedValue = fileUrl; // وضع الرابط في value
+                    } catch (parseError) {
+                        console.warn('Failed to parse FILE property:', pv.property.propertyKey, parseError.message);
+                        processedValue = pv.value;
+                    }
+                }
+
                 propertyValuesObj[pv.property.propertyKey] = {
-                    value: pv.value,
+                    value: processedValue,
+                    url: fileUrl, // إضافة url منفصل
                     property: pv.property
                 };
             });
