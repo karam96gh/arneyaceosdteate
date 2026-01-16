@@ -5,8 +5,25 @@ const path = require('path');
 const multer = require('multer');
 
 // ✅ إنشاء multer middleware مرن يقبل أي أسماء حقول (للخصائص الديناميكية)
+const flexibleStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '../uploads/realestate/');
+        const fs = require('fs');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const fileExtension = path.extname(file.originalname);
+        const timestamp = Date.now();
+        const uniqueName = `${timestamp}-realestate${fileExtension}`;
+        cb(null, uniqueName);
+    }
+});
+
 const flexibleUpload = multer({
-    storage: createStorage('REALESTATE'),
+    storage: flexibleStorage,
     fileFilter: (req, file, cb) => {
         const allowedTypes = [...ALLOWED_TYPES.IMAGES, ...ALLOWED_TYPES.VIDEOS, ...ALLOWED_TYPES.DOCUMENTS];
         if (allowedTypes.includes(file.mimetype)) {
