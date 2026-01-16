@@ -45,7 +45,7 @@ router.post('/',
     
     // رفع الملفات (استخدام .any() لقبول ملفات ديناميكية من الخصائص)
     (req, res, next) => {
-        console.log('🔍 [STEP 3.5] Before multer');
+        console.log('🔍 [STEP 3.55] Before multer');
         realestateController.upload.any()(req, res, (err) => {
             if (err) {
                 console.error('❌ Multer error:', err);
