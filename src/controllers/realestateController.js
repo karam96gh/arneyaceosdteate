@@ -395,25 +395,24 @@ const addRealEstate = async (req, res) => {
         }
 
         // فحص الملفات المرفوعة (multer().any() يضع الملفات في مصفوفة واحدة)
-        console.log('All uploaded files:', req.files?.map(f => f.fieldname) || []);
+        const allFiles = req.files || [];
+        console.log('All uploaded files:', allFiles.map(f => f.fieldname));
 
         // فصل الملفات حسب النوع
         let coverImage = null;
         const files = [];
         const propertyFiles = {}; // ملفات الخصائص الديناميكية
 
-        if (req.files && Array.isArray(req.files)) {
-            req.files.forEach(file => {
-                if (file.fieldname === 'coverImage') {
-                    coverImage = file.filename;
-                } else if (file.fieldname === 'files') {
-                    files.push(file.filename);
-                } else {
-                    // أي ملف آخر يعتبر من ملفات الخصائص
-                    propertyFiles[file.fieldname] = file;
-                }
-            });
-        }
+        allFiles.forEach(file => {
+            if (file.fieldname === 'coverImage') {
+                coverImage = file.filename;
+            } else if (file.fieldname === 'files') {
+                files.push(file.filename);
+            } else {
+                // أي ملف آخر يعتبر من ملفات الخصائص
+                propertyFiles[file.fieldname] = file;
+            }
+        });
 
         console.log('Files categorized:', {
             coverImage: coverImage || 'MISSING',
