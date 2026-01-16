@@ -44,14 +44,22 @@ router.post('/',
     },
     
     // رفع الملفات (استخدام .any() لقبول ملفات ديناميكية من الخصائص)
-    realestateController.upload.any(),
-    
-    // تسجيل بعد multer
     (req, res, next) => {
-        console.log('🔍 [STEP 4] After multer - req.user:', !!req.user);
-        next();
+        console.log('🔍 [STEP 3.5] Before multer');
+        realestateController.upload.any()(req, res, (err) => {
+            if (err) {
+                console.error('❌ Multer error:', err);
+                return res.status(400).json({
+                    error: err.message,
+                    code: err.code
+                });
+            }
+            console.log('🔍 [STEP 4] After multer - req.user:', !!req.user);
+            console.log('🔍 [STEP 4] Files received:', req.files ? Object.keys(req.files) : 'NONE');
+            next();
+        });
     },
-    
+
     // Controller
     realestateController.addRealEstate
 );
