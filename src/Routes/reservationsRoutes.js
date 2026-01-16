@@ -12,9 +12,14 @@ const {
   getUpcomingReservations
 } = require('../controllers/reservationsController');
 const { requireAuth, requireRole, requireOwnership } = require('../middleware/auth');
+const { uploadMiddlewares } = require('../config/upload');
 
-// ✅ إنشاء حجز جديد (جميع المستخدمين المسجلين)
-router.post('/', requireAuth, createReservation);
+// ✅ إنشاء حجز جديد (جميع المستخدمين المسجلين) مع رفع صورة الهوية
+router.post('/',
+  requireAuth,
+  uploadMiddlewares.general.single('idImage'),
+  createReservation
+);
 
 // ✅ الحصول على حجوزات المستخدم الحالي (مع تشخيص)
 router.get('/user', requireAuth, (req, res, next) => {

@@ -156,6 +156,7 @@ model RealEstate {
   files          File[]
   propertyValues PropertyValue[]
   Reservation    Reservation[]
+  Offer          Offer[]
 
   @@map("realestate")
 }
@@ -227,6 +228,8 @@ model User {
   // Relations
   reservations        Reservation[]
   companyReservations Reservation[] @relation("CompanyReservations")
+  offers              Offer[]
+  companyOffers       Offer[]       @relation("CompanyOffers")
   companyRealEstates  RealEstate[]  @relation("CompanyRealEstates")     // ✅ إضافة علاقة العقارات
   companyBuildings    Building[]    @relation("CompanyBuildings")       // ✅ إضافة علاقة المباني
   companyBuildingItems BuildingItem[] @relation("CompanyBuildingItems") // ✅ إضافة علاقة عناصر المباني
@@ -243,6 +246,7 @@ model Reservation {
   visitDate  DateTime
   visitTime  String            @db.VarChar(10)
   notes      String?           @db.Text
+  idImage    String?           @db.VarChar(255)
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
@@ -252,6 +256,28 @@ model Reservation {
   company  User?      @relation("CompanyReservations", fields: [companyId], references: [id], onDelete: SetNull)
 
   @@map("reservations")
+}
+
+model Offer {
+  id          Int         @id @default(autoincrement())
+  propertyId  Int
+  userId      Int
+  companyId   Int?
+  status      OfferStatus @default(PENDING)
+  offerAmount Int
+  visitDate   DateTime
+  visitTime   String      @db.VarChar(10)
+  notes       String?     @db.Text
+  idImage     String?     @db.VarChar(255)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  property RealEstate @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company  User?      @relation("CompanyOffers", fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@map("offers")
 }
 
 enum UserRole {
@@ -266,6 +292,13 @@ enum ReservationStatus {
   CONFIRMED @map("confirmed")
   CANCELLED @map("cancelled")
   COMPLETED @map("completed")
+}
+
+enum OfferStatus {
+  PENDING   @map("pending")
+  ACCEPTED  @map("accepted")
+  REJECTED  @map("rejected")
+  CANCELLED @map("cancelled")
 }
 
 enum BuildingStatus {

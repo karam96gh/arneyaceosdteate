@@ -1,13 +1,18 @@
 // src/controllers/reservationsController.js - FIXED VERSION
 const { dbManager } = require('../config/database');
+const { buildGeneralFileUrl } = require('../config/upload');
 
 // إنشاء حجز جديد - FIXED
 const createReservation = async (req, res) => {
   try {
     console.log('=== CREATE RESERVATION START ===');
     console.log('User:', req.user?.id, req.user?.role, req.user?.username);
-    
+
     const { propertyId, visitDate, visitTime, notes } = req.body;
+
+    // الحصول على اسم ملف صورة الهوية إذا تم رفعها
+    const idImage = req.file ? req.file.filename : null;
+    console.log('ID Image uploaded:', idImage);
     
     // التحقق من البيانات المطلوبة
     if (!propertyId || !visitDate || !visitTime) {
@@ -117,6 +122,7 @@ const createReservation = async (req, res) => {
         visitDate: visitDateTime,
         visitTime,
         notes,
+        idImage, // ✅ حفظ اسم ملف صورة الهوية
         status: 'PENDING'
       },
       include: {
@@ -169,6 +175,7 @@ const createReservation = async (req, res) => {
       visitDate: reservation.visitDate.toISOString().split('T')[0],
       visitTime: reservation.visitTime,
       notes: reservation.notes,
+      idImage: reservation.idImage ? buildGeneralFileUrl(reservation.idImage) : null, // ✅ إرجاع رابط صورة الهوية
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt
     };
@@ -233,7 +240,7 @@ const getUserReservations = async (req, res) => {
 
     // ✅ تحويل محسن للعرض
     const formattedReservations = reservations.map(reservation => {
-      const propertyLocation = reservation.property.city && reservation.property.neighborhood 
+      const propertyLocation = reservation.property.city && reservation.property.neighborhood
         ? `${reservation.property.city.name}, ${reservation.property.neighborhood.name}`
         : 'Location not specified';
 
@@ -250,11 +257,12 @@ const getUserReservations = async (req, res) => {
         companyPhone: reservation.company?.phone,
         companyEmail: reservation.company?.email,
         status: reservation.status.toLowerCase(),
-        visitDate: reservation.visitDate instanceof Date 
+        visitDate: reservation.visitDate instanceof Date
           ? reservation.visitDate.toISOString().split('T')[0]
           : reservation.visitDate,
         visitTime: reservation.visitTime,
         notes: reservation.notes,
+        idImage: reservation.idImage ? buildGeneralFileUrl(reservation.idImage) : null, // ✅ إرجاع رابط صورة الهوية
         createdAt: reservation.createdAt,
         updatedAt: reservation.updatedAt,
         // ✅ إضافة معلومات مفيدة
@@ -368,7 +376,7 @@ const getReservations = async (req, res) => {
       propertyTitle: reservation.property.title,
       propertyPrice: reservation.property.price,
       propertyImage: reservation.property.coverImage,
-      propertyLocation: reservation.property.city && reservation.property.neighborhood 
+      propertyLocation: reservation.property.city && reservation.property.neighborhood
         ? `${reservation.property.city.name}, ${reservation.property.neighborhood.name}`
         : undefined,
       userId: reservation.userId,
@@ -379,11 +387,12 @@ const getReservations = async (req, res) => {
       companyName: reservation.company?.companyName || 'No company assigned',
       companyPhone: reservation.company?.phone,
       status: reservation.status.toLowerCase(),
-      visitDate: reservation.visitDate instanceof Date 
+      visitDate: reservation.visitDate instanceof Date
         ? reservation.visitDate.toISOString().split('T')[0]
         : reservation.visitDate,
       visitTime: reservation.visitTime,
       notes: reservation.notes,
+      idImage: reservation.idImage ? buildGeneralFileUrl(reservation.idImage) : null, // ✅ إرجاع رابط صورة الهوية
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt
     }));
@@ -529,11 +538,12 @@ const updateReservation = async (req, res) => {
       companyName: reservation.company?.companyName || 'No company assigned',
       companyPhone: reservation.company?.phone,
       status: reservation.status.toLowerCase(),
-      visitDate: reservation.visitDate instanceof Date 
+      visitDate: reservation.visitDate instanceof Date
         ? reservation.visitDate.toISOString().split('T')[0]
         : reservation.visitDate,
       visitTime: reservation.visitTime,
       notes: reservation.notes,
+      idImage: reservation.idImage ? buildGeneralFileUrl(reservation.idImage) : null, // ✅ إرجاع رابط صورة الهوية
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt
     };

@@ -48,6 +48,7 @@ const buildingRoutes = require('./routes/buildingRoutes');
 const propertyRoutes = require('./routes/propertyRoutes');
 const filePropertyRoutes = require('./routes/filePropertyRoutes');
 const reservationsRoutes = require('./routes/reservationsRoutes');
+const offersRoutes = require('./routes/offersRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const authRoutes = require('./routes/authRoutes');
 
@@ -348,6 +349,7 @@ app.use('/api/properties', filePropertyRoutes);
 app.use('/api', buildingRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/reservations', reservationsRoutes);
+app.use('/api/offers', offersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 // File upload routes
 app.use('/images', require('./routes/uploadImage'));
@@ -432,6 +434,14 @@ app.get('/api', (req, res) => {
             update: 'PUT /api/reservations/:id',
             delete: 'DELETE /api/reservations/:id',
             stats: 'GET /api/reservations/stats (Admin/Company)'
+        },
+        offerEndpoints: {
+            create: 'POST /api/offers',
+            getAll: 'GET /api/offers (Admin/Company)',
+            getUserOffers: 'GET /api/offers/user',
+            update: 'PUT /api/offers/:id',
+            delete: 'DELETE /api/offers/:id',
+            stats: 'GET /api/offers/stats (Admin/Company)'
         },
         dashboardEndpoints: {
             stats: 'GET /api/dashboard/stats (Admin/Company)'
