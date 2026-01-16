@@ -394,29 +394,45 @@ const addRealEstate = async (req, res) => {
             });
         }
 
-        // فحص الملفات المرفوعة (multer().any() يضع الملفات في مصفوفة واحدة)
-        console.log('DEBUG req.files type:', typeof req.files);
-        console.log('DEBUG req.files is Array:', Array.isArray(req.files));
-        console.log('DEBUG req.files:', req.files);
-
-        const allFiles = Array.isArray(req.files) ? req.files : [];
-        console.log('All uploaded files:', allFiles.map(f => f.fieldname));
-
-        // فصل الملفات حسب النوع
+        // فحص الملفات المرفوعة
+        // مع .any() ممكن يكون req.files إما array أو object
         let coverImage = null;
         const files = [];
         const propertyFiles = {}; // ملفات الخصائص الديناميكية
 
-        allFiles.forEach(file => {
-            if (file.fieldname === 'coverImage') {
-                coverImage = file.filename;
-            } else if (file.fieldname === 'files') {
-                files.push(file.filename);
-            } else {
-                // أي ملف آخر يعتبر من ملفات الخصائص
-                propertyFiles[file.fieldname] = file;
+        if (req.files) {
+            if (Array.isArray(req.files)) {
+                // إذا كان array (عند وجود ملفات ديناميكية فقط)
+                req.files.forEach(file => {
+                    if (file.fieldname === 'coverImage') {
+                        coverImage = file.filename;
+                    } else if (file.fieldname === 'files') {
+                        files.push(file.filename);
+                    } else {
+                        propertyFiles[file.fieldname] = file;
+                    }
+                });
+            } else if (typeof req.files === 'object') {
+                // إذا كان object (الحالة الحالية)
+                if (req.files.coverImage && req.files.coverImage[0]) {
+                    coverImage = req.files.coverImage[0].filename;
+                }
+
+                if (req.files.files && Array.isArray(req.files.files)) {
+                    files.push(...req.files.files.map(f => f.filename));
+                }
+
+                // البحث عن ملفات الخصائص الديناميكية
+                Object.keys(req.files).forEach(fieldname => {
+                    if (fieldname !== 'coverImage' && fieldname !== 'files') {
+                        const fileArray = req.files[fieldname];
+                        if (fileArray && fileArray[0]) {
+                            propertyFiles[fieldname] = fileArray[0];
+                        }
+                    }
+                });
             }
-        });
+        }
 
         console.log('Files categorized:', {
             coverImage: coverImage || 'MISSING',
