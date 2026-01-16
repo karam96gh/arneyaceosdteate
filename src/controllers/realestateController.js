@@ -358,6 +358,21 @@ const addRealEstate = async (req, res) => {
             bodyKeys: Object.keys(req.body)
         });
 
+        // 🔍 DEBUG: فحص properties field
+        console.log('🔍 DEBUG properties field:', properties ? 'EXISTS' : 'NULL');
+        if (properties) {
+            console.log('🔍 DEBUG properties type:', typeof properties);
+            console.log('🔍 DEBUG properties keys:', typeof properties === 'object' ? Object.keys(properties) : 'N/A');
+            // عرض قيم الخصائص (أول 3 خصائص فقط للإيجاز)
+            if (typeof properties === 'object') {
+                const propKeys = Object.keys(properties).slice(0, 5);
+                propKeys.forEach(key => {
+                    const value = properties[key];
+                    console.log(`    ${key}: ${typeof value} = ${String(value).substring(0, 50)}`);
+                });
+            }
+        }
+
         // ✅ تحديد الشركة المالكة مع معالجة أفضل
         let finalCompanyId = null;
         
@@ -394,6 +409,12 @@ const addRealEstate = async (req, res) => {
             });
         }
 
+        // 🔍 DEBUG: فحص ما تم استلامه
+        console.log('🔍 DEBUG req.files:', req.files ? 'EXISTS' : 'NULL');
+        console.log('🔍 DEBUG req.files type:', typeof req.files);
+        console.log('🔍 DEBUG req.files keys:', req.files ? Object.keys(req.files) : 'N/A');
+        console.log('🔍 DEBUG Full req.files:', JSON.stringify(req.files, null, 2));
+
         // فحص الملفات المرفوعة
         // مع .any() ممكن يكون req.files إما array أو object
         let coverImage = null;
@@ -402,31 +423,39 @@ const addRealEstate = async (req, res) => {
 
         if (req.files) {
             if (Array.isArray(req.files)) {
+                console.log('📦 Processing files as ARRAY');
                 // إذا كان array (عند وجود ملفات ديناميكية فقط)
                 req.files.forEach(file => {
+                    console.log(`  - File: ${file.fieldname} → ${file.filename}`);
                     if (file.fieldname === 'coverImage') {
                         coverImage = file.filename;
                     } else if (file.fieldname === 'files') {
                         files.push(file.filename);
                     } else {
+                        console.log(`    ✅ Property file detected: ${file.fieldname}`);
                         propertyFiles[file.fieldname] = file;
                     }
                 });
             } else if (typeof req.files === 'object') {
+                console.log('📦 Processing files as OBJECT');
                 // إذا كان object (الحالة الحالية)
                 if (req.files.coverImage && req.files.coverImage[0]) {
                     coverImage = req.files.coverImage[0].filename;
+                    console.log(`  - coverImage: ${coverImage}`);
                 }
 
                 if (req.files.files && Array.isArray(req.files.files)) {
                     files.push(...req.files.files.map(f => f.filename));
+                    console.log(`  - files: ${files.length} files`);
                 }
 
                 // البحث عن ملفات الخصائص الديناميكية
                 Object.keys(req.files).forEach(fieldname => {
                     if (fieldname !== 'coverImage' && fieldname !== 'files') {
                         const fileArray = req.files[fieldname];
+                        console.log(`  - Checking field: ${fieldname}, value:`, fileArray);
                         if (fileArray && fileArray[0]) {
+                            console.log(`    ✅ Property file detected: ${fieldname} → ${fileArray[0].filename}`);
                             propertyFiles[fieldname] = fileArray[0];
                         }
                     }
@@ -434,7 +463,7 @@ const addRealEstate = async (req, res) => {
             }
         }
 
-        console.log('Files categorized:', {
+        console.log('📂 Files categorized:', {
             coverImage: coverImage || 'MISSING',
             additionalFiles: files.length,
             propertyFiles: Object.keys(propertyFiles),
