@@ -1,10 +1,28 @@
 // src/controllers/realestateController.js - COMPLETE FIXED VERSION
 const { dbManager } = require('../config/database');
-const { uploadMiddlewares, deleteFile: deleteFileFromDisk, buildRealEstateFileUrl } = require('../config/upload');
+const { uploadMiddlewares, deleteFile: deleteFileFromDisk, buildRealEstateFileUrl, createStorage, ALLOWED_TYPES } = require('../config/upload');
 const path = require('path');
+const multer = require('multer');
 
-// ✅ استخدام الـ middleware الموحد
-const upload = uploadMiddlewares.realEstate;
+// ✅ إنشاء multer middleware مرن يقبل أي أسماء حقول (للخصائص الديناميكية)
+const flexibleUpload = multer({
+    storage: createStorage('REALESTATE'),
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = [...ALLOWED_TYPES.IMAGES, ...ALLOWED_TYPES.VIDEOS, ...ALLOWED_TYPES.DOCUMENTS];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`File type ${file.mimetype} not allowed`), false);
+        }
+    },
+    limits: {
+        fileSize: 15 * 1024 * 1024, // 15MB للسماح بملفات PDF أكبر
+        files: 20 // حد أقصى 20 ملف
+    }
+});
+
+// ✅ استخدام الـ middleware المرن بدلاً من uploadMiddlewares.realEstate
+const upload = flexibleUpload;
 
 // Get all real estate listings - FIXED
 const getAllRealEstate = async (req, res) => {
