@@ -395,7 +395,11 @@ const addRealEstate = async (req, res) => {
         }
 
         // فحص الملفات المرفوعة (multer().any() يضع الملفات في مصفوفة واحدة)
-        const allFiles = req.files || [];
+        console.log('DEBUG req.files type:', typeof req.files);
+        console.log('DEBUG req.files is Array:', Array.isArray(req.files));
+        console.log('DEBUG req.files:', req.files);
+
+        const allFiles = Array.isArray(req.files) ? req.files : [];
         console.log('All uploaded files:', allFiles.map(f => f.fieldname));
 
         // فصل الملفات حسب النوع
