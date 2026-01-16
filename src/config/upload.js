@@ -43,7 +43,8 @@ const buildIconUrl = (filename) => {
 const buildPropertyFileUrl = (propertyKey, filename) => {
     if (!filename) return null;
     if (filename.startsWith('http')) return filename;
-    return `${BASE_URL}/images/properties/${propertyKey}/${filename}`;
+    // ✅ ملفات الخصائص تُحفظ في realestate folder
+    return `${BASE_URL}/uploads/realestate/${filename}`;
 };
 
 const buildGeneralFileUrl = (filename) => {
