@@ -184,7 +184,59 @@ Here's a concise guide to the project’s important functions and how to use the
 
 ## 📤 رفع ملفات الخصائص (Property Files)
 
-بعض الخصائص من نوع `FILE` (مثل `blueprints_pdf`, `purchase_agreement_pdf`, `payment_plan_pdf`) تحتاج إلى رفع ملفات PDF أو مستندات. لرفع هذه الملفات، استخدم الـ API المخصص:
+بعض الخصائص من نوع `FILE` (مثل `blueprints_pdf`, `purchase_agreement_pdf`, `payment_plan_pdf`) تحتاج إلى رفع ملفات PDF أو مستندات.
+
+### ✅ الطريقة الموصى بها: رفع الملفات مع بيانات العقار
+
+يمكنك رفع ملفات الخصائص مباشرة مع بيانات إضافة العقار في نفس الطلب:
+
+```javascript
+const formData = new FormData();
+
+// بيانات العقار الأساسية
+formData.append('title', 'شقة للبيع');
+formData.append('price', '50000');
+formData.append('cityId', '1');
+// ... باقي البيانات
+
+// صورة الغلاف والملفات الإضافية
+formData.append('coverImage', coverImageFile);
+formData.append('files', imageFile1);
+formData.append('files', imageFile2);
+
+// خصائص عادية (نصية، رقمية)
+formData.append('properties[bedrooms]', '3');
+formData.append('properties[bathrooms]', '2');
+
+// ✅ ملفات الخصائص الديناميكية - فقط أضفها مباشرة باسم الخاصية!
+formData.append('blueprints_pdf', blueprintsPdfFile);
+formData.append('purchase_agreement_pdf', agreementPdfFile);
+formData.append('payment_plan_pdf', paymentPlanPdfFile);
+
+// إرسال الطلب
+const response = await fetch('/api/realestate', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  },
+  body: formData
+});
+
+const { data } = await response.json();
+// الآن العقار تم إنشاؤه مع جميع الملفات!
+```
+
+**كيف يعمل:**
+- الـ API يقبل أي ملفات ديناميكية تُرسل
+- يتحقق تلقائياً من وجود خاصية بنفس الاسم ونوع `FILE` في قاعدة البيانات
+- يحفظ الملف ومعلوماته تلقائياً
+- لا حاجة لطلبات منفصلة!
+
+---
+
+### 📌 طريقة بديلة: رفع الملفات بعد إنشاء العقار
+
+إذا كنت تريد رفع الملفات بعد إنشاء العقار، يمكنك استخدام الـ API المخصص:
 
 ### 1. رفع ملف لخاصية معينة
 

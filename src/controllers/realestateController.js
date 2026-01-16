@@ -394,14 +394,32 @@ const addRealEstate = async (req, res) => {
             });
         }
 
-        // فحص الملفات المرفوعة
-        const coverImage = req.files?.coverImage?.[0]?.filename;
-        const files = req.files?.files?.map(file => file.filename) || [];
+        // فحص الملفات المرفوعة (multer().any() يضع الملفات في مصفوفة واحدة)
+        console.log('All uploaded files:', req.files?.map(f => f.fieldname) || []);
 
-        console.log('Files received:', {
+        // فصل الملفات حسب النوع
+        let coverImage = null;
+        const files = [];
+        const propertyFiles = {}; // ملفات الخصائص الديناميكية
+
+        if (req.files && Array.isArray(req.files)) {
+            req.files.forEach(file => {
+                if (file.fieldname === 'coverImage') {
+                    coverImage = file.filename;
+                } else if (file.fieldname === 'files') {
+                    files.push(file.filename);
+                } else {
+                    // أي ملف آخر يعتبر من ملفات الخصائص
+                    propertyFiles[file.fieldname] = file;
+                }
+            });
+        }
+
+        console.log('Files categorized:', {
             coverImage: coverImage || 'MISSING',
             additionalFiles: files.length,
-            totalFiles: (coverImage ? 1 : 0) + files.length
+            propertyFiles: Object.keys(propertyFiles),
+            totalFiles: (coverImage ? 1 : 0) + files.length + Object.keys(propertyFiles).length
         });
 
         // التحقق من الحقول المطلوبة
@@ -544,7 +562,7 @@ const addRealEstate = async (req, res) => {
                     console.log('✅ Added', files.length, 'additional files');
                 }
 
-                // إضافة قيم الخصائص
+                // إضافة قيم الخصائص (القيم النصية والرقمية)
                 if (properties && typeof properties === 'object') {
                     console.log('Processing property values...');
                     const propertyValues = [];
@@ -564,9 +582,9 @@ const addRealEstate = async (req, res) => {
                             });
 
                             if (property) {
-                                // تخطي خصائص FILE - يجب رفعها عبر API منفصل
+                                // تخطي خصائص FILE - سيتم معالجتها من propertyFiles
                                 if (property.dataType === 'FILE') {
-                                    console.log(`⚠️ Skipping FILE property '${propertyKey}' - use /api/properties/files endpoint to upload files`);
+                                    console.log(`⚠️ Skipping FILE property '${propertyKey}' - will be processed from uploaded files`);
                                     continue;
                                 }
 
@@ -595,6 +613,51 @@ const addRealEstate = async (req, res) => {
                         });
                         console.log('✅ Added', propertyValues.length, 'property values');
                     }
+                }
+
+                // معالجة ملفات الخصائص الديناميكية
+                if (Object.keys(propertyFiles).length > 0) {
+                    console.log('Processing property files...');
+
+                    for (const [propertyKey, uploadedFile] of Object.entries(propertyFiles)) {
+                        console.log(`📄 Processing FILE property: ${propertyKey}`);
+
+                        // البحث عن الخاصية في قاعدة البيانات
+                        const property = await tx.property.findFirst({
+                            where: {
+                                propertyKey,
+                                finalTypeId: parseInt(finalTypeId),
+                                dataType: 'FILE'
+                            }
+                        });
+
+                        if (property) {
+                            // إنشاء كائن معلومات الملف
+                            const fileInfo = {
+                                originalName: uploadedFile.originalname,
+                                fileName: uploadedFile.filename,
+                                filePath: uploadedFile.path,
+                                mimeType: uploadedFile.mimetype,
+                                size: uploadedFile.size,
+                                uploadDate: new Date().toISOString()
+                            };
+
+                            // حفظ معلومات الملف في propertyValue
+                            await tx.propertyValue.create({
+                                data: {
+                                    realEstateId: realEstate.id,
+                                    propertyId: property.id,
+                                    value: JSON.stringify(fileInfo)
+                                }
+                            });
+
+                            console.log(`✅ Added FILE property: ${propertyKey} -> ${uploadedFile.filename}`);
+                        } else {
+                            console.warn(`⚠️ Property '${propertyKey}' not found or not of type FILE for finalTypeId: ${finalTypeId}`);
+                        }
+                    }
+
+                    console.log(`✅ Processed ${Object.keys(propertyFiles).length} property files`);
                 }
 
                 return realEstate;

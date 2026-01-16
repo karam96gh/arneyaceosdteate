@@ -43,11 +43,8 @@ router.post('/',
         next();
     },
     
-    // رفع الملفات
-    realestateController.upload.fields([
-        { name: 'coverImage', maxCount: 1 },
-        { name: 'files', maxCount: 10 }
-    ]),
+    // رفع الملفات (استخدام .any() لقبول ملفات ديناميكية من الخصائص)
+    realestateController.upload.any(),
     
     // تسجيل بعد multer
     (req, res, next) => {
