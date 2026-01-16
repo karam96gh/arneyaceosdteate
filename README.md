@@ -327,4 +327,4 @@ fetch(`https://eqraat.com/api/properties/files/${realEstateId}/${propertyId}`, {
 
 ---
 
-If you'd like, I can expand the file descriptions with examples of key methods, update badges, or generate a simple API reference from the routes — tell me which you'd prefer next! ✨
+If you'd like, I can expand the file descriptions with examples of key methods, update badges, or generate a simple API reference from the routes — tell me which you'd prefer next! ✨ي
