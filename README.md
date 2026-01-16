@@ -319,45 +319,11 @@ fetch(`https://eqraat.com/api/properties/files/${realEstateId}/${propertyId}`, {
 
 ### ⚠️ ملاحظات مهمة
 
-1. **لا ترسل ملفات الخصائص مع بيانات إضافة العقار الأساسية** - الـ API سيتخطاها تلقائياً
-2. **يجب رفع ملفات الخصائص بعد إنشاء العقار** باستخدام الـ endpoint المخصص أعلاه
-3. **الأنواع المسموحة:** PDF, DOC, DOCX (حسب إعدادات الخاصية في قاعدة البيانات)
-4. **الحد الأقصى لحجم الملف:** 15MB للخصائص
-
-### سير العمل الكامل
-
-```javascript
-// 1. إضافة العقار أولاً (بدون ملفات الخصائص)
-const realEstateData = {
-  title: "شقة للبيع",
-  price: 50000,
-  // ... باقي البيانات
-  properties: {
-    bedrooms: "3",
-    bathrooms: "2"
-    // لا ترسل blueprints_pdf هنا!
-  }
-};
-
-const response = await fetch('/api/realestate', {
-  method: 'POST',
-  body: formDataWithImages
-});
-
-const { data } = await response.json();
-const realEstateId = data.id;
-
-// 2. رفع ملفات الخصائص
-const blueprintsPdfPropertyId = 605; // ID الخاصية من قاعدة البيانات
-
-const fileFormData = new FormData();
-fileFormData.append('file', blueprintsPdfFile);
-
-await fetch(`/api/properties/files/${realEstateId}/${blueprintsPdfPropertyId}/upload`, {
-  method: 'POST',
-  body: fileFormData
-});
-```
+1. **✅ يمكنك رفع ملفات الخصائص مباشرة مع بيانات العقار** - استخدم اسم الخاصية كـ fieldname
+2. **الملفات الديناميكية**: أي ملف يُرسل باسم مختلف عن `coverImage` و `files` سيُعامل كملف خاصية
+3. **التحقق التلقائي**: الـ API يتحقق من وجود الخاصية ونوعها `FILE` قبل الحفظ
+4. **الأنواع المسموحة:** حسب إعدادات `allowedValues` للخاصية في قاعدة البيانات
+5. **الحد الأقصى لحجم الملف:** 10MB للعقارات (حسب إعدادات Multer)
 
 ---
 
